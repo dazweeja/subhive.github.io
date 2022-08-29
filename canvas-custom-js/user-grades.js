@@ -12,12 +12,6 @@
   const baseUrl = window.location.protocol + '//' + window.location.host;
   const dateOptions = { timeZone: 'Australia/Melbourne' };
 
-  function camelize(str) {
-    return str.replace(/(?:^\w|[A-Z]|\b\w)/g, function(word, index) {
-      return index === 0 ? word.toLowerCase() : word.toUpperCase();
-    }).replace(/\s+/g, '');
-  }
-
   function init(mutations, observer) {
     const viewer = document.getElementById('view_grades');
     if (!viewer && typeof observer === 'undefined') {
@@ -40,7 +34,8 @@
     getCourse(courseUrl)
       .then(function(course) {
         $('.page-title').html(course.name);
-      });
+      })
+      .catch(e => errorHandler(e));
 
     const url = baseUrl + '/api/v1/courses/' + courseId + '/assignment_groups?per_page=999&include[]=assignments';
     getAssignmentGroups(url)
@@ -65,7 +60,7 @@
               groupsKeyed[groupId] = { name: groupId, assignments };
             }
           }
-        });
+        })
 
         const subUrl = new URL(baseUrl + '/api/v1/courses/' + courseId + '/students/submissions');
         subUrl.searchParams.append('per_page', 999);
@@ -83,20 +78,20 @@
 
             let isProgress = false;
             let isIncompetent = false;
-            grades.forEach(function(grade) {
+            for (const assId in grades) {
+              const grade = grades[assId];
               if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
               else if (grade !== 'satisfactory') isIncompetent = true;
-            });
+            }
 
             const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Competent' : 'Competent');
             content += createResultTable(result);
 
             $(viewer).html(content);
-          });
+          })
+          .catch(e => errorHandler(e));
       })
-      .catch(function (error) {
-        console.error(error);
-      });
+      .catch(e => errorHandler(e));
   }
 
   function getCourseId() {
@@ -153,9 +148,7 @@
           return page.data;
         }
       })
-      .catch(function (error) {
-        console.error(error);
-      });
+      .catch(e => errorHandler(e));
   }
 
   function getAssignmentGroupsPage(url) {
@@ -193,7 +186,7 @@
           return page.data;
         }
       })
-      .catch(error => console.error(error));
+      .catch(e => errorHandler(e));
   }
 
   function getStatusPage(url) {
@@ -267,18 +260,17 @@
 
       let prettyGrade = '';
       if (grade === 'satisfactory') {
-        prettyGrade = `<span style="color: #32b332;">Satisfactory</span>`;
+        prettyGrade = '<span style="color: #32b332;">Satisfactory</span>';
       }
       else if (grade === 'not yet satisfactory') {
-        prettyGrade = `<span style="color: #ee3a3d;">Not Yet Satisfactory</span>`;
+        prettyGrade = '<span style="color: #ee3a3d;">Not Yet Satisfactory</span>';
       }
       else if (grade === 'submitted') {
-        prettyGrade = `<span style="color: #2f74f4;">Submitted</span>`;
+        prettyGrade = '<span style="color: #2f74f4;">Submitted</span>';
       }
       else {
-        prettyGrade = camelize(grade)
+        prettyGrade = `<span style="text-transform: capitalize;">${grade}</span>`;
       }
-      //table += '<td><p><span style="color: #32b332;">Satisfactory</span></p></td>';
       table += `<td><p>${prettyGrade}</p></td>`;
       table += '</tr>';
     });
