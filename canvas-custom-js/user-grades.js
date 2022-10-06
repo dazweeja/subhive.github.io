@@ -9,60 +9,99 @@
   'use strict';
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
-  const dateOptions = {timeZone: 'Australia/Melbourne'};
 
-  function init(mutations, observer) {
+  function init() {
     const viewer = document.getElementById('view_grades');
-    if (!viewer && typeof observer === 'undefined') {
-      const obs = new MutationObserver(init);
-      obs.observe(document.body, {'childList': true});
-    }
-    if (viewer) {
-      if (typeof observer !== 'undefined') {
-        observer.disconnect();
-      }
+    const menu = document.getElementsByClassName('ic-app-course-menu');
+    const config = { childList: true };
 
-      addHTML(viewer);
+    if (viewer) {
+      addGrades(viewer);
+    }
+    else  {
+      const gradesObserver = new MutationObserver(gradesCallback);
+      gradesObserver.observe(document.body, config);
+    }
+
+    if (menu) {
+      addMenuItem(menu[0]);
+    }
+    else  {
+      const menuObserver = new MutationObserver(menuCallback);
+      menuObserver.observe(document.body, config);
     }
   }
 
-  function addHTML(viewer) {
-    const courseId = getCourseId();
-    const courseUrl = new URL(baseUrl + '/api/v1/courses/' + courseId);
+  function gradesCallback(mutations, observer) {
+    const viewer = document.getElementById('view_grades');
+    if (viewer) {
+      observer.disconnect();
+      addGrades(viewer);
+    }
+  }
 
-    getCourse(courseUrl)
-      .then(function (course) {
-        $('.page-title').html('My Grades - ' + course.name);
-      })
-      .catch(e => errorHandler(e));
+  function menuCallback(mutations, observer) {
+    const menu = document.getElementsByClassName('ic-app-course-menu');
+    if (menu) {
+      observer.disconnect();
+      addMenuItem(menu[0]);
+    }
+  }
+
+  function addMenuItem(menu) {
+
+    // <a href="/courses/2523/assignments" class="assignments" tabindex="0">Assignments</a>
+    const homeItem = menu.querySelector('li a.home');
+    if (homeItem) {
+      const item = document.createElement('li');
+      item.classList.add('section');
+      const link = document.createElement('a');
+      link.classList.add('my-grades');
+      link.setAttribute('href', homeItem.href + '/pages/my-grades');
+      link.setAttribute('tabindex', '0');
+      link.innerText = 'My Grades';
+      item.append(link);
+      homeItem.parentNode.after(item);
+    }
+  }
+
+  function addGrades(viewer) {
+    const courseId = getCourseId();
 
     const url = baseUrl + '/api/v1/courses/' + courseId + '/assignment_groups?per_page=999&include[]=assignments';
     getAssignmentGroups(url)
-      .then(function (groups) {
+      .then(function (assignmentGroups) {
         const assignmentRegex = /^([a-zA-Z0-9]+)[\s\-]+/;
         const grades = {};
-        const groupsKeyed = {};
-        groups.forEach(function (group) {
+        const assignments = {};
+        const groups = {};
+        assignmentGroups.forEach(function (group) {
           console.log(group);
           const matches = assignmentRegex.exec(group.name);
           if (matches && group.assignments && group.assignments.length) {
             const groupId = matches[1];
-            const assignments = [];
-            group.assignments.forEach(function (assignment) {
-              assignments.push({
-                id: assignment.id,
-                url: assignment.html_url,
-                name: assignment.name,
-                due: assignment.due_at
-              });
+            const groupAssignments = [];
+            group.assignments.forEach(function (groupAssignment) {
+              const assignment = {
+                id: groupAssignment.id,
+                url: groupAssignment.html_url,
+                name: groupAssignment.name
+              };
+
+              if (groupAssignment.grading_type === 'points') {
+                assignment.points_possible = 'points_possible' in groupAssignment ? groupAssignment.points_possible : -1;
+              }
+
+              groupAssignments.push(assignment);
+              assignments[assignment.id] = assignment;
               grades[assignment.id] = null;
             });
 
-            if (groupId in groupsKeyed) {
-              groupsKeyed[groupId].assignments = groupsKeyed[groupId].assignments.concat(assignments);
+            if (groupId in groups) {
+              groups[groupId].assignments = groups[groupId].assignments.concat(groupAssignments);
             }
             else {
-              groupsKeyed[groupId] = {name: groupId, assignments};
+              groups[groupId] = {name: group.name, assignments: groupAssignments};
             }
           }
         })
@@ -73,26 +112,28 @@
 
         getStatuses(subUrl)
           .then(statuses => {
-            parseStatuses(statuses, grades);
+            console.log(statuses);
+            console.log(grades);
+            parseStatuses(statuses, grades, assignments);
 
             let content = '';
-            Object.values(groupsKeyed).forEach(function (group) {
+            Object.values(groups).forEach(function (group) {
               content += `<h2>${group.name}</h2>`;
               content += createTable(group, grades);
             });
 
             let isProgress = false;
             let isIncompetent = false;
-            for (const assId in grades) {
-              const grade = grades[assId];
+            for (const assignmentId in grades) {
+              const grade = grades[assignmentId];
               if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
-              else if (grade !== 'satisfactory') isIncompetent = true;
+              else if (grade !== 'satisfactory' && grade !== 'excused') isIncompetent = true;
             }
 
             const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
             content += createResultTable(result);
 
-            $(viewer).html(content);
+            viewer.innerHTML = content;
           })
           .catch(e => errorHandler(e));
       })
@@ -115,29 +156,6 @@
       errorHandler(e);
     }
     return courseId;
-  }
-
-  function getCourse(url) {
-    return new Promise(function (resolve, reject) {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = function () {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            resolve(
-              JSON.parse(xhr.responseText)
-            )
-          }
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = function () {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
   }
 
   function getAssignmentGroups(url) {
@@ -218,7 +236,7 @@
     });
   }
 
-  function parseStatuses(statuses, grades) {
+  function parseStatuses(statuses, grades, assignments) {
     statuses.forEach(status => {
       // workflow state: “submitted”, “unsubmitted”, “graded”, “pending_review”
       let grade = status.excused ? 'excused' : status.grade;
@@ -228,6 +246,13 @@
       else if (grade == null) {
         grade = status.workflow_state === 'graded' ? 'submitted' : 'not submitted';
       }
+      else if (status.assignment_id in assignments && 'points_possible' in assignments[status.assignment_id]) {
+        const pointsGrade = parseFloat(status.grade);
+        grade = 'satisfactory';
+        if (assignments[status.assignment_id].points_possible > 0 && pointsGrade < assignments[status.assignment_id].points_possible) {
+          grade = 'not yet satisfactory';
+        }
+      }
 
       grades[status.assignment_id] = grade.toLowerCase().trim();
     });
@@ -235,9 +260,8 @@
 
   function createTable(group, grades) {
     let table = '<table class="ic-Table ic-Table--hover-row"><thead><tr>';
-    table += '<th style="width: 60%;" scope="col">Assessment</th>';
-    table += '<th style="width: 20%;" scope="col">Due Date</th>';
-    table += '<th style="width: 20%;" scope="col">Grade</th>';
+    table += '<th style="width: 70%;" scope="col">Assessment</th>';
+    table += '<th style="width: 30%;" scope="col">Grade</th>';
     table += '</tr></thead>';
     table += '<tbody>';
 
@@ -255,13 +279,12 @@
     let isIncompetent = false;
 
     group.assignments.forEach((assignment) => {
-      const due = assignment.due ? new Date(assignment.due).toLocaleDateString('en-GB', dateOptions) : '';
+      console.log(assignment);
       const grade = assignment.id in grades ? grades[assignment.id] : 'NA';
       if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
-      else if (grade !== 'satisfactory') isIncompetent = true;
+      else if (grade !== 'satisfactory' && grade !== 'excused') isIncompetent = true;
       table += '<tr>';
       table += `<td><a href="${assignment.url}">${assignment.name}</a></td>`;
-      table += `<td>${due}</td>`;
 
       let prettyGrade = '';
       if (grade === 'satisfactory') {
