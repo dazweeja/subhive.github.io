@@ -1,16 +1,15 @@
 /**
- // @name        Canvas JS
+ // @name        VET User Grades
  // @namespace   https://github.com/dazweeja/subhive.github.io
  // @author      Darren Smith <darren@spacedog.com.au>
- //
- //
+ // @updated     02.09.2022
  //
  **/
 (function () {
   'use strict';
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
-  const dateOptions = { timeZone: 'Australia/Melbourne' };
+  const dateOptions = {timeZone: 'Australia/Melbourne'};
 
   function init(mutations, observer) {
     const viewer = document.getElementById('view_grades');
@@ -32,8 +31,8 @@
     const courseUrl = new URL(baseUrl + '/api/v1/courses/' + courseId);
 
     getCourse(courseUrl)
-      .then(function(course) {
-        $('.page-title').html(course.name);
+      .then(function (course) {
+        $('.page-title').html('My Grades - ' + course.name);
       })
       .catch(e => errorHandler(e));
 
@@ -43,13 +42,19 @@
         const assignmentRegex = /^([a-zA-Z0-9]+)[\s\-]+/;
         const grades = {};
         const groupsKeyed = {};
-        groups.forEach(function(group) {
+        groups.forEach(function (group) {
+          console.log(group);
           const matches = assignmentRegex.exec(group.name);
           if (matches && group.assignments && group.assignments.length) {
             const groupId = matches[1];
             const assignments = [];
-            group.assignments.forEach(function(assignment) {
-              assignments.push({id: assignment.id, url: assignment.html_url, name: assignment.name, due: assignment.due_at});
+            group.assignments.forEach(function (assignment) {
+              assignments.push({
+                id: assignment.id,
+                url: assignment.html_url,
+                name: assignment.name,
+                due: assignment.due_at
+              });
               grades[assignment.id] = null;
             });
 
@@ -57,7 +62,7 @@
               groupsKeyed[groupId].assignments = groupsKeyed[groupId].assignments.concat(assignments);
             }
             else {
-              groupsKeyed[groupId] = { name: groupId, assignments };
+              groupsKeyed[groupId] = {name: groupId, assignments};
             }
           }
         })
@@ -71,8 +76,8 @@
             parseStatuses(statuses, grades);
 
             let content = '';
-            Object.values(groupsKeyed).forEach(function(group) {
-              content += `<h3>${group.name}</h3>`;
+            Object.values(groupsKeyed).forEach(function (group) {
+              content += `<h2>${group.name}</h2>`;
               content += createTable(group, grades);
             });
 
@@ -84,7 +89,7 @@
               else if (grade !== 'satisfactory') isIncompetent = true;
             }
 
-            const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Competent' : 'Competent');
+            const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
             content += createResultTable(result);
 
             $(viewer).html(content);
@@ -250,7 +255,7 @@
     let isIncompetent = false;
 
     group.assignments.forEach((assignment) => {
-      const due = assignment.due ? new Date(assignment.due).toLocaleDateString('en-GB', dateOptions)  : '';
+      const due = assignment.due ? new Date(assignment.due).toLocaleDateString('en-GB', dateOptions) : '';
       const grade = assignment.id in grades ? grades[assignment.id] : 'NA';
       if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
       else if (grade !== 'satisfactory') isIncompetent = true;
@@ -275,7 +280,7 @@
       table += '</tr>';
     });
 
-    const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Competent' : 'Competent');
+    const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
     table += '<tr style="font-size: 1.1rem;">';
     table += '<td>&nbsp;</td>';
     table += '<td style="text-align: right;"><p><strong>Unit Result:&nbsp;</strong></p></td>';
