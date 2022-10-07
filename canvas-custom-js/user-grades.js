@@ -49,15 +49,16 @@
   }
 
   function addMenuItem(menu) {
+    const courseId = getCourseId();
+    const href = '/courses/' + courseId + '/pages/my-grades';
 
-    // <a href="/courses/2523/assignments" class="assignments" tabindex="0">Assignments</a>
     const homeItem = menu.querySelector('li a.home');
     if (homeItem) {
       const item = document.createElement('li');
       item.classList.add('section');
       const link = document.createElement('a');
       link.classList.add('my-grades');
-      link.setAttribute('href', homeItem.href + '/pages/my-grades');
+      link.setAttribute('href', href);
       link.setAttribute('tabindex', '0');
       link.innerText = 'My Grades';
       item.append(link);
@@ -67,8 +68,8 @@
 
   function addGrades(viewer) {
     const courseId = getCourseId();
-
     const url = baseUrl + '/api/v1/courses/' + courseId + '/assignment_groups?per_page=999&include[]=assignments';
+    
     getAssignmentGroups(url)
       .then(function (assignmentGroups) {
         const assignmentRegex = /^([a-zA-Z0-9]+)[\s\-]+/;
