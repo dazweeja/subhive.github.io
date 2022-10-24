@@ -1,8 +1,8 @@
 /**
- // @name        VET User Grades
+ // @name        VET Student Grades
  // @namespace   https://github.com/dazweeja/subhive.github.io
  // @author      Darren Smith <darren@spacedog.com.au>
- // @updated     02.09.2022
+ // @updated     07.10.2022
  //
  **/
 (function () {
@@ -13,12 +13,12 @@
   function init() {
     const viewer = document.getElementById('view_grades');
     const menu = document.getElementsByClassName('ic-app-course-menu');
-    const config = { childList: true };
+    const config = {childList: true};
 
     if (viewer) {
       addGrades(viewer);
     }
-    else  {
+    else {
       const gradesObserver = new MutationObserver(gradesCallback);
       gradesObserver.observe(document.body, config);
     }
@@ -26,7 +26,7 @@
     if (menu) {
       addMenuItem(menu[0]);
     }
-    else  {
+    else {
       const menuObserver = new MutationObserver(menuCallback);
       menuObserver.observe(document.body, config);
     }
@@ -49,40 +49,61 @@
   }
 
   function addMenuItem(menu) {
+    if (getIsTeacher()) return;
+
     const courseId = getCourseId();
     const href = '/courses/' + courseId + '/pages/my-grades';
+    const menuItem = menu.querySelector('li a.modules');
 
-    const homeItem = menu.querySelector('li a.home');
-    if (homeItem) {
+    if (menuItem) {
+      const isActive = window.location.href.indexOf(href) !== -1;
       const item = document.createElement('li');
       item.classList.add('section');
       const link = document.createElement('a');
       link.classList.add('my-grades');
+      if (isActive) {
+        link.classList.add('active');
+      }
       link.setAttribute('href', href);
       link.setAttribute('tabindex', '0');
       link.innerText = 'My Grades';
       item.append(link);
-      homeItem.parentNode.after(item);
+      menuItem.parentNode.after(item);
+
+      if(isActive) {
+        const pagesItem = menu.querySelector('li a.pages');
+        pagesItem.classList.remove('active');
+      }
     }
   }
 
   function addGrades(viewer) {
+    if (getIsTeacher()) {
+      viewer.innerHTML = '<p>My Grades page can only be viewed by students.</p>';
+      return;
+    }
+
+    viewer.innerHTML = '<p>Loading...</p>';
+
     const courseId = getCourseId();
     const url = baseUrl + '/api/v1/courses/' + courseId + '/assignment_groups?per_page=999&include[]=assignments';
-    
+
     getAssignmentGroups(url)
       .then(function (assignmentGroups) {
-        const assignmentRegex = /^([a-zA-Z0-9]+)[\s\-]+/;
         const grades = {};
         const assignments = {};
-        const groups = {};
-        assignmentGroups.forEach(function (group) {
-          console.log(group);
-          const matches = assignmentRegex.exec(group.name);
-          if (matches && group.assignments && group.assignments.length) {
-            const groupId = matches[1];
+        const groups = [];
+
+        assignmentGroups.sort((a, b) => a.position - b.position);
+
+        assignmentGroups.forEach(function (assignmentGroup) {
+          console.log(assignmentGroup);
+          let group = null;
+          if (assignmentGroup.assignments && assignmentGroup.assignments.length) {
             const groupAssignments = [];
-            group.assignments.forEach(function (groupAssignment) {
+            assignmentGroup.assignments.sort((a, b) => a.position - b.position);
+
+            assignmentGroup.assignments.forEach(function (groupAssignment) {
               const assignment = {
                 id: groupAssignment.id,
                 url: groupAssignment.html_url,
@@ -98,12 +119,16 @@
               grades[assignment.id] = null;
             });
 
-            if (groupId in groups) {
-              groups[groupId].assignments = groups[groupId].assignments.concat(groupAssignments);
+            if (group) {
+              group.assignments = group.assignments.concat(groupAssignments);
             }
             else {
-              groups[groupId] = {name: group.name, assignments: groupAssignments};
+              group = {name: assignmentGroup.name, assignments: groupAssignments};
             }
+          }
+
+          if (group) {
+            groups.push(group);
           }
         })
 
@@ -118,12 +143,12 @@
             parseStatuses(statuses, grades, assignments);
 
             let content = '';
-            Object.values(groups).forEach(function (group) {
+            groups.forEach(function (group) {
               content += `<h2>${group.name}</h2>`;
               content += createTable(group, grades);
             });
 
-            let isProgress = false;
+            /*let isProgress = false;
             let isIncompetent = false;
             for (const assignmentId in grades) {
               const grade = grades[assignmentId];
@@ -132,7 +157,7 @@
             }
 
             const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
-            content += createResultTable(result);
+            content += createResultTable(result);*/
 
             viewer.innerHTML = content;
           })
@@ -157,6 +182,21 @@
       errorHandler(e);
     }
     return courseId;
+  }
+
+  function getIsTeacher() {
+    let isTeacher = false;
+    const teacherExp = /"user"\,"teacher"/;
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const teacherMatches = scripts[i].text.match(teacherExp);
+      if (teacherMatches != null) {
+        isTeacher = true;
+        break;
+      }
+    }
+
+    return isTeacher;
   }
 
   function getAssignmentGroups(url) {
@@ -266,16 +306,6 @@
     table += '</tr></thead>';
     table += '<tbody>';
 
-    group.assignments.sort((a, b) => {
-      if (a.name.toLowerCase().indexOf('declaration') < b.name.toLowerCase().indexOf('declaration')) {
-        return 1;
-      }
-      if (a.name.toLowerCase().indexOf('declaration') > b.name.toLowerCase().indexOf('declaration')) {
-        return -1;
-      }
-      return 0;
-    });
-
     let isProgress = false;
     let isIncompetent = false;
 
@@ -306,7 +336,7 @@
 
     const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
     table += '<tr style="font-size: 1.1rem;">';
-    table += '<td>&nbsp;</td>';
+    //table += '<td>&nbsp;</td>';
     table += '<td style="text-align: right;"><p><strong>Unit Result:&nbsp;</strong></p></td>';
     table += `<td><p>${result}</p></td>`;
     table += '</tr></tbody></table><p>&nbsp;</p>';
