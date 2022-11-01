@@ -186,7 +186,7 @@
 
   function getIsTeacher() {
     let isTeacher = false;
-    const teacherExp = /"user"\,"teacher"/;
+    const teacherExp = /"current_user_roles":\[(?:[^\]]*)"teacher"(?:[^\]]*)\]/;
     const scripts = document.getElementsByTagName('script');
     for (let i = 0; i < scripts.length; i++) {
       const teacherMatches = scripts[i].text.match(teacherExp);
