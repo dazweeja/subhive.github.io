@@ -1,20 +1,19 @@
 // ==UserScript==
-// @name        Active enrollments
+// @name        Active enrollments 2
 // @namespace   https://github.com/dazweeja/subhive.github.io
 // @author      Darren Smith <darren@spacedog.com.au>
 // @description Script for adding active enrollments to canvas user page
 // @version     0.1
-// @match       https://collarts.instructure.com/*
 // @match       https://collarts.test.instructure.com/*
 // @run-at      document-end
 // ==/UserScript==
 (function () {
   'use strict';
 
-  const selector = '#main #user-info-fieldsets #courses #courses_list';
+  const selector = '#courses #courses_list';
 
   function init() {
-    if (!window.location.pathname.match(/\/users\/\d+/)) return;
+    if (!window.location.pathname.match(/\/courses\/\d+/)) return;
 
     const coursesList = document.querySelector(selector);
     const config = {childList: true};
