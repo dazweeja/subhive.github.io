@@ -43,30 +43,32 @@
       const links = item.querySelector('a').querySelectorAll('span[class="subtitle"]');
       for (const link of links) {
         if (link.innerText.indexOf('Active') === 0) {
+          const clonedItem = item.cloneNode(true);
           let matches;
+
           if (links.length > 0) {
-            matches = links[0].innerText.match(/(\d+)\s+T(\d)/);
+            const matches = links[0].innerText.match(/(\d+)\s+T(\d)/);
             if (matches) {
               const [match, year, trimester] = matches;
 
               if (!(year in enrolled)) {
-                enrolled[year] = {[trimester]: [item]};
+                enrolled[year] = {[trimester]: [clonedItem]};
               }
               else if (!(trimester in enrolled[year])) {
-                enrolled[year][trimester] = [item];
+                enrolled[year][trimester] = [clonedItem];
               }
               else {
-                enrolled[year][trimester].push(item);
+                enrolled[year][trimester].push(clonedItem);
               }
             }
           }
 
           if (!matches) {
             if ('default' in enrolled) {
-              enrolled['default'].push(item);
+              enrolled['default'].push(clonedItem);
             }
             else {
-              enrolled['default'] = [item];
+              enrolled['default'] = [clonedItem];
             }
           }
         }
