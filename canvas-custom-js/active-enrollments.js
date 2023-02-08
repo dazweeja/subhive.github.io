@@ -2,10 +2,10 @@
 // @name        Active enrollments
 // @namespace   https://github.com/dazweeja/subhive.github.io
 // @author      Darren Smith <darren@spacedog.com.au>
-// @description Description
-// @version 0.1
-// @match      https://collarts.instructure.com/*
-// @run-at     document-end
+// @description Script for adding active enrollments to canvas user page
+// @version     0.1
+// @match       https://collarts.instructure.com/*
+// @run-at      document-end
 // ==/UserScript==
 (function () {
   'use strict';
