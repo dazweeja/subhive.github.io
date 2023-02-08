@@ -39,15 +39,14 @@
     const enrolled = {};
 
     const items = coursesList.querySelectorAll('li');
-    for (let i = 0; i < items.length; i++) {
-      const links = items[i].querySelector('a').querySelectorAll('span[class="subtitle"]');
-      for (let j = 0; j < links.length; j++) {
-        if (links[j].innerText.indexOf('Active') === 0) {
-          let item;
-          if (j > 0) {
-            const matches = links[j - 1].innerText.match(/(\d+)\s+T(\d)/);
+    for (const item of items) {
+      const links = item.querySelector('a').querySelectorAll('span[class="subtitle"]');
+      for (const link of links) {
+        if (link.innerText.indexOf('Active') === 0) {
+          let matches;
+          if (links.length > 0) {
+            matches = links[0].innerText.match(/(\d+)\s+T(\d)/);
             if (matches) {
-              item = items[i];
               const [match, year, trimester] = matches;
 
               if (!(year in enrolled)) {
@@ -62,12 +61,12 @@
             }
           }
 
-          if (!item) {
+          if (!matches) {
             if ('default' in enrolled) {
-              enrolled['default'].push(items[i]);
+              enrolled['default'].push(item);
             }
             else {
-              enrolled['default'] = [items[i]];
+              enrolled['default'] = [item];
             }
           }
         }
@@ -89,8 +88,8 @@
         const listNode = document.createElement('ul');
         listNode.classList.add('unstyled_list', 'context_list');
 
-        for (let i = 0; i < enrolled.default.length; i++) {
-          listNode.append(enrolled.default[i]);
+        for (const defaultItem of enrolled.default) {
+          listNode.append(defaultItem);
         }
 
         defaultContentNode.append(listNode);
@@ -111,8 +110,8 @@
           const listNode = document.createElement('ul');
           listNode.classList.add('unstyled_list', 'context_list');
 
-          for (let i = 0; i < items.length; i++) {
-            listNode.append(items[i]);
+          for (const item of items) {
+            listNode.append(item);
           }
 
           trimesterContentNode.append(listNode);
