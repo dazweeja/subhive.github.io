@@ -46,7 +46,7 @@
       const element = document.createElement('style');
       document.head.appendChild(element);
       let sheet = element.sheet;
-      const styles = 'ul.context_list .name { font-size: 1.3em; }';
+      const styles = 'ul.context_list .name { font-size: 1.35em; }';
       sheet.insertRule(styles, 0);
 
       items[0].parentElement.style.maxHeight = '400px';
