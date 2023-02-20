@@ -40,36 +40,48 @@
     const enrolled = {};
 
     const items = coursesList.querySelectorAll('li');
-    for (const item of items) {
-      const links = item.querySelector('a').querySelectorAll('span[class="subtitle"]');
-      for (const link of links) {
-        if (link.innerText.indexOf('Active') === 0) {
-          const clonedItem = item.cloneNode(true);
-          let matches;
 
-          if (links.length > 0) {
-            const matches = links[0].innerText.match(/(\d+)\s+T(\d)/);
-            if (matches) {
-              const [match, year, trimester] = matches;
+    // change max-height
+    if (items.length > 0) {
+      const element = document.createElement('style');
+      document.head.appendChild(element);
+      let sheet = element.sheet;
+      const styles = 'ul.context_list .name { font-size: 1.35em; }';
+      sheet.insertRule(styles, 0);
 
-              if (!(year in enrolled)) {
-                enrolled[year] = {[trimester]: [clonedItem]};
+      items[0].parentElement.style.maxHeight = '400px';
+
+      for (const item of items) {
+        const links = item.querySelector('a').querySelectorAll('span[class="subtitle"]');
+        for (const link of links) {
+          if (link.innerText.indexOf('Active') === 0) {
+            const clonedItem = item.cloneNode(true);
+            let matches;
+
+            if (links.length > 0) {
+              const matches = links[0].innerText.match(/(\d+)\s+T(\d)/);
+              if (matches) {
+                const [match, year, trimester] = matches;
+
+                if (!(year in enrolled)) {
+                  enrolled[year] = {[trimester]: [clonedItem]};
+                }
+                else if (!(trimester in enrolled[year])) {
+                  enrolled[year][trimester] = [clonedItem];
+                }
+                else {
+                  enrolled[year][trimester].push(clonedItem);
+                }
               }
-              else if (!(trimester in enrolled[year])) {
-                enrolled[year][trimester] = [clonedItem];
+            }
+
+            if (!matches) {
+              if ('default' in enrolled) {
+                enrolled['default'].push(clonedItem);
               }
               else {
-                enrolled[year][trimester].push(clonedItem);
+                enrolled['default'] = [clonedItem];
               }
-            }
-          }
-
-          if (!matches) {
-            if ('default' in enrolled) {
-              enrolled['default'].push(clonedItem);
-            }
-            else {
-              enrolled['default'] = [clonedItem];
             }
           }
         }
