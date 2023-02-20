@@ -15,14 +15,12 @@
   const selector = '#gradebook_grid .slick-header-columns > .total_grade .Gradebook__ColumnHeaderDetail';
 
   function init() {
-    console.log('init');
     if (!window.location.pathname.match(/\/courses\/\d+\/gradebook/)) return;
 
     const totalHeading = document.querySelector(selector);
     const config = {childList: true};
 
     if (totalHeading) {
-      console.log('init1');
       addModerationTotals(totalHeading);
     }
     else {
@@ -45,12 +43,17 @@
     const courseId = getCourseId();
     const url = baseUrl + '/api/v1/courses/' + courseId + '/users?per_page=999&&enrollment_type[]=student&include[]=enrollments';
 
+    const element = document.createElement('style');
+    document.head.appendChild(element);
+    let sheet = element.sheet;
+    const styles = '.Gradebook__ColumnHeaderDetail i::before { font-size: 0.75rem; }';
+    sheet.insertRule(styles, 0);
+
     const icon = document.createElement('i');
+    icon.classList.add('icon-Solid', 'icon-updown');
+    icon.setAttribute('aria-hidden',  'true');
     icon.style.cursor = 'pointer';
-    icon.style.font = '0.75rem InstructureIcons-Solid';
-    icon.innerHTML = '&#xEB58;';
     icon.style.marginLeft = '0.25rem';
-    totalHeading.append(icon);
 
     const wrapper = document.createElement('div');
     wrapper.style.border = '1px solid #bbb';
@@ -84,6 +87,8 @@
 
         getUsers(url)
         .then(function (users) {
+          let content;
+
           users.forEach(function (user) {
             if (user.name.match(/Test\s*Student/i)) return;
 
@@ -108,11 +113,17 @@
               });
             }
           });
+
+          if (!content) content = createEmptyTableBody();
+          tableBody.innerHTML = content;
         })
         .catch(e => errorHandler(e))
-
-      console.log('end');
     });
+
+    setTimeout(function() {
+      const heading = document.querySelector(selector);
+      heading.appendChild(icon);
+    }, 1000);
   }
 
   function getCourseId() {
@@ -197,9 +208,16 @@
     return content;
   }
 
-  function createLoadingTableBody(total, fails, passes) {
+  function createLoadingTableBody() {
     let content = `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
     content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;  text-align: center;">Loading...</td></tr>`;
+    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
+    return content;
+  }
+
+  function createEmptyTableBody() {
+    let content = `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
+    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;  text-align: center;">No students with results</td></tr>`;
     content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
     return content;
   }
