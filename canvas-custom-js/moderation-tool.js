@@ -109,7 +109,7 @@
                   passes++;
                 }
 
-                tableBody.innerHTML = createResultsTableBody(total, fails, passes);
+                content = createResultsTableBody(total, fails, passes);
               });
             }
           });
