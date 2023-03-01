@@ -17,27 +17,27 @@
   function init() {
     if (!window.location.pathname.match(/\/courses\/\d+\/gradebook/)) return;
 
-    const totalHeading = document.querySelector(selector);
+    const totalHeader = document.querySelector(selector);
     const config = {childList: true};
 
-    if (totalHeading) {
-      addModerationTotals(totalHeading);
+    if (totalHeader) {
+      addModerationTotals(totalHeader);
     }
     else {
-      const headingObserver = new MutationObserver(headingCallback);
-      headingObserver.observe(document.body, config);
+      const headerObserver = new MutationObserver(headerCallback);
+      headerObserver.observe(document.body, config);
     }
   }
 
-  function headingCallback(mutations, observer) {
-    const totalHeading = document.querySelector(selector);
-    if (totalHeading) {
+  function headerCallback(mutations, observer) {
+    const totalHeader = document.querySelector(selector);
+    if (totalHeader) {
       observer.disconnect();
-      addModerationTotals(totalHeading);
+      addModerationTotals(totalHeader);
     }
   }
 
-  function addModerationTotals(totalHeading) {
+  function addModerationTotals(totalHeader) {
     if (!getIsTeacher()) return;
 
     const courseId = getCourseId();
@@ -49,45 +49,47 @@
     const styles = '.Gradebook__ColumnHeaderDetail i::before { font-size: 0.75rem; }';
     sheet.insertRule(styles, 0);
 
-    const icon = document.createElement('i');
-    icon.classList.add('icon-Solid', 'icon-updown');
-    icon.setAttribute('aria-hidden',  'true');
-    icon.style.cursor = 'pointer';
-    icon.style.marginLeft = '0.25rem';
-
     const wrapper = document.createElement('div');
     wrapper.style.border = '1px solid #bbb';
     wrapper.style.zIndex = '999';
-    wrapper.style.padding = '0 0 0.5rem';
+    wrapper.style.padding = '0 0 8px';
     wrapper.style.backgroundColor = '#fff';
     wrapper.style.position = 'absolute';
     wrapper.fontSize = '1rem';
-
-    const bodyRect = document.body.getBoundingClientRect();
-    const headingRect = totalHeading.closest('div.slick-header-column').getBoundingClientRect();
-    wrapper.style.right = (bodyRect.right - headingRect.right) + 'px';
-    wrapper.style.top = (headingRect.bottom - bodyRect.top - 1) + 'px';
+    wrapper.style.top = '-137px';
 
     const table = document.createElement('table');
-    table.style.width = '16rem';
+    table.style.width = '256px';
     table.style.border = '0';
     table.style.fontSize = '0.875rem';
 
-    const tableBody = document.createElement('tbody');
-    const loadingBody = createLoadingTableBody();
+    wrapper.append(table);
 
-    icon.addEventListener('click', function(event) {
-      if (!document.body.append(wrapper)) {
-        table.append(tableBody);
-        wrapper.append(table);
-        document.body.append(wrapper);
+    let isConnected = false;
+    let noResultsBody;
+
+    const statsHandler = function(event) {
+      if (!isConnected) {
+        const header = document.querySelector(selector);
+        const headerColumn = header.closest('div.slick-header-column')
+        const headerRect = headerColumn.getBoundingClientRect();
+        const gridWrapper = header.closest('#gradebook-grid-wrapper');
+        const gridWrapperRect = gridWrapper.getBoundingClientRect();
+        gridWrapper.style.position = 'relative';
+        wrapper.style.left = headerRect.right - gridWrapperRect.left - 258 + 'px';
+        gridWrapper.append(wrapper);
+        isConnected = true;
       }
 
-      tableBody.innerHTML = loadingBody;
+      if (table.firstChild) {
+        table.removeChild(table.firstChild);
+      }
 
-        getUsers(url)
+      table.append(loadingBody);
+
+      getUsers(url)
         .then(function (users) {
-          let content;
+          let tableBody;
 
           users.forEach(function (user) {
             if (user.name.match(/Test\s*Student/i)) return;
@@ -109,21 +111,139 @@
                   passes++;
                 }
 
-                content = createResultsTableBody(total, fails, passes);
+                tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes);
               });
             }
           });
 
-          if (!content) content = createEmptyTableBody();
-          tableBody.innerHTML = content;
+          if (!tableBody) {
+            if (!noResultsBody) noResultsBody = tableBodyFactory(noResultsCloseIcon, noResultsRefreshIcon, 'No students with results');
+
+            tableBody = noResultsBody;
+          }
+
+          table.removeChild(loadingBody);
+          table.append(tableBody);
         })
         .catch(e => errorHandler(e))
-    });
+    }
+
+    const closeHandler = function(event) {
+      wrapper.remove();
+      isConnected = false;
+    };
+
+    const statsIcon = iconFactory('icon-stats');
+    statsIcon.style.marginLeft = '0.25rem';
+    statsIcon.addEventListener('click', statsHandler);
+
+    const closeIcon = iconFactory('icon-end', closeHandler);
+    const refreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+
+    const totalsCloseIcon = iconFactory('icon-end', closeHandler);
+    const totalsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+
+    const noResultsCloseIcon = iconFactory('icon-end', closeHandler);
+    const noResultsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+
+    const loadingBody = tableBodyFactory(closeIcon, null, 'Loading...');
 
     setTimeout(function() {
-      const heading = document.querySelector(selector);
-      heading.appendChild(icon);
+      const header = document.querySelector(selector);
+      header.appendChild(statsIcon);
     }, 1000);
+  }
+
+  function iconFactory(className, handler, marginRight) {
+    const icon = document.createElement('i');
+    icon.classList.add('icon-Solid', className);
+    icon.setAttribute('aria-hidden',  'true');
+    icon.style.cursor = 'pointer';
+    icon.addEventListener('click', handler);
+    if (marginRight) icon.style.marginRight = marginRight;
+    return icon;
+  }
+
+  function tableBodyFactory(closeIcon, refreshIcon, totalOrText, fails, passes) {
+    const tableBody = document.createElement('tbody');
+
+    const iconRow = document.createElement('tr');
+    const iconCell = document.createElement('td');
+    iconCell.style.padding = '0 0.7rem 0 0';
+    iconCell.style.lineHeight = '32px';
+    iconCell.style.textAlign = 'right';
+    if (refreshIcon) iconCell.append(refreshIcon);
+    iconCell.append(closeIcon);
+    iconRow.append(iconCell);
+    tableBody.append(iconRow);
+
+    if (typeof totalOrText === 'number') {
+      iconCell.colSpan = 2;
+      const topRow = document.createElement('tr');
+      const topLabelCell = document.createElement('td');
+      topLabelCell.style.padding = ' 0 0 0 0.5rem';
+      topLabelCell.style.lineHeight = '32px';
+      topLabelCell.style.width = '85%';
+      topLabelCell.innerText = 'Total students:';
+      const topValueCell = document.createElement('td');
+      topValueCell.style.padding = ' 0';
+      topValueCell.style.lineHeight = '32px';
+      topValueCell.style.width = '15%';
+      topValueCell.style.textAlign = 'center';
+      topValueCell.innerText = totalOrText;
+      topRow.append(topLabelCell, topValueCell);
+      const middleRow = document.createElement('tr');
+      const middleLabelCell = document.createElement('td');
+      middleLabelCell.style.padding = ' 0 0 0 0.5rem';
+      middleLabelCell.style.lineHeight = '32px';
+      middleLabelCell.style.width = '85%';
+      middleLabelCell.innerText = 'Projected fails:';
+      const middleValueCell = document.createElement('td');
+      middleValueCell.style.padding = ' 0';
+      middleValueCell.style.lineHeight = '32px';
+      middleValueCell.style.width = '15%';
+      middleValueCell.style.textAlign = 'center';
+      middleValueCell.innerText = fails;
+      middleRow.append(middleLabelCell, middleValueCell);
+      const bottomRow = document.createElement('tr');
+      const bottomLabelCell = document.createElement('td');
+      bottomLabelCell.style.padding = ' 0 0 0 0.5rem';
+      bottomLabelCell.style.lineHeight = '32px';
+      bottomLabelCell.style.width = '85%';
+      bottomLabelCell.innerText = 'Projected passes (49.5% +):';
+      const bottomValueCell = document.createElement('td');
+      bottomValueCell.style.padding = ' 0';
+      bottomValueCell.style.lineHeight = '32px';
+      bottomValueCell.style.width = '15%';
+      bottomValueCell.style.textAlign = 'center';
+      bottomValueCell.innerText = passes;
+      bottomRow.append(bottomLabelCell, bottomValueCell);
+      tableBody.append(topRow, middleRow,bottomRow);
+    }
+    else {
+      const topRow = document.createElement('tr');
+      const topCell = document.createElement('td');
+      topCell.style.padding = ' 0 0 0 0.5rem';
+      topCell.style.lineHeight = '32px';
+      topCell.innerHTML = '&nbsp;';
+      topRow.append(topCell);
+      const middleRow = document.createElement('tr');
+      const middleCell = document.createElement('td');
+      middleCell.style.padding = ' 0 0 0 0.5rem';
+      middleCell.style.lineHeight = '32px';
+      middleCell.style.textAlign = 'center';
+      middleCell.innerText = totalOrText;
+      middleRow.append(middleCell);
+      const bottomRow = document.createElement('tr');
+      const bottomCell = document.createElement('td');
+      bottomCell.style.padding = ' 0 0 0 0.5rem';
+      bottomCell.style.lineHeight = '32px';
+      bottomCell.innerHTML = '&nbsp;';
+      bottomRow.append(bottomCell);
+      tableBody.append(topRow, middleRow,bottomRow);
+    }
+
+    return tableBody;
   }
 
   function getCourseId() {
@@ -197,29 +317,6 @@
       };
       xhr.send();
     });
-  }
-
-  function createResultsTableBody(total, fails, passes) {
-    let content = `<tr><td colspan="2" style="text-align: right"><i class="icon-Solid icon-refresh" aria-hidden="true"></i>&nbsp;<i class="icon-Solid icon-end" aria-hidden="true"></i></td></tr>`;
-    content += `<tr><td style="width: 85%; padding: 0.5rem 0 0 0.5rem;">Total students:</td><td style="width: 15%; text-align: center; padding: 0;">${total}</td></tr>`;
-    content += `<tr><td style="width: 85%; padding: 0.5rem 0 0 0.5rem;">Projected fails:</td><td style="width: 15%; text-align: center; padding: 0;">${fails}</td></tr>`;
-    content += `<tr><td style="width: 85%; padding: 0.5rem 0 0 0.5rem;">Projected passes (49.5% +):</td><td style="width: 15%; text-align: center; padding: 0;">${passes}</td></tr>`;
-
-    return content;
-  }
-
-  function createLoadingTableBody() {
-    let content = `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
-    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;  text-align: center;">Loading...</td></tr>`;
-    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
-    return content;
-  }
-
-  function createEmptyTableBody() {
-    let content = `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
-    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;  text-align: center;">No students with results</td></tr>`;
-    content += `<tr><td style="padding: 0.5rem 0 0 0.5rem;">&nbsp;</td></tr>`;
-    return content;
   }
 
   function nextURL(linkTxt) {
