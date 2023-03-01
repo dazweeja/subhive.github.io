@@ -91,34 +91,35 @@
         .then(function (users) {
           let tableBody;
 
+          let total = 0, fails = 0, passes = 0;
+
           users.forEach(function (user) {
             if (user.name.match(/Test\s*Student/i)) return;
 
             if (user.enrollments && user.enrollments.length > 0) {
-              let total = 0, fails = 0, passes = 0;
               user.enrollments.forEach(function (enrollment) {
                 if (enrollment.enrollment_state !== 'active' || enrollment.type !== 'StudentEnrollment') return;
 
                 total++;
 
-                if (enrollment.current_score === null) {
+                if (!enrollment.hasOwnProperty('grades') || !enrollment.grades.hasOwnProperty('current_score') || typeof enrollment.grades.current_score !== 'number') {
                   // ignore
                 }
-                else if (enrollment.current_score < 49.5) {
+                else if (enrollment.grades.current_score < 49.5) {
                   fails++;
                 }
                 else {
                   passes++;
                 }
-
-                tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes);
               });
             }
           });
 
-          if (!tableBody) {
+          if (total > 0) {
+            tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes);
+          }
+          else {
             if (!noResultsBody) noResultsBody = tableBodyFactory(noResultsCloseIcon, noResultsRefreshIcon, 'No students with results');
-
             tableBody = noResultsBody;
           }
 
@@ -138,7 +139,6 @@
     statsIcon.addEventListener('click', statsHandler);
 
     const closeIcon = iconFactory('icon-end', closeHandler);
-    const refreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
 
     const totalsCloseIcon = iconFactory('icon-end', closeHandler);
     const totalsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
