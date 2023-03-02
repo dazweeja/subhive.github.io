@@ -56,7 +56,7 @@
     wrapper.style.backgroundColor = '#fff';
     wrapper.style.position = 'absolute';
     wrapper.fontSize = '1rem';
-    wrapper.style.top = '-137px';
+    wrapper.style.top = '-169px';
 
     const table = document.createElement('table');
     table.style.width = '256px';
@@ -66,7 +66,7 @@
     wrapper.append(table);
 
     let isConnected = false;
-    let noResultsBody;
+    let noEnrollmentsBody;
 
     const statsHandler = function(event) {
       if (!isConnected) {
@@ -91,7 +91,7 @@
         .then(function (users) {
           let tableBody;
 
-          let total = 0, fails = 0, passes = 0;
+          let total = 0, fails = 0, passes = 0, noScores = 0;
 
           users.forEach(function (user) {
             if (user.name.match(/Test\s*Student/i)) return;
@@ -103,7 +103,7 @@
                 total++;
 
                 if (!enrollment.hasOwnProperty('grades') || !enrollment.grades.hasOwnProperty('current_score') || typeof enrollment.grades.current_score !== 'number') {
-                  // ignore
+                  noScores++
                 }
                 else if (enrollment.grades.current_score < 49.5) {
                   fails++;
@@ -116,11 +116,11 @@
           });
 
           if (total > 0) {
-            tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes);
+            tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes, noScores);
           }
           else {
-            if (!noResultsBody) noResultsBody = tableBodyFactory(noResultsCloseIcon, noResultsRefreshIcon, 'No students with results');
-            tableBody = noResultsBody;
+            if (!noEnrollmentsBody) noEnrollmentsBody = tableBodyFactory(noEnrollmentsCloseIcon, noEnrollmentsRefreshIcon, 'No active enrollments');
+            tableBody = noEnrollmentsBody;
           }
 
           table.removeChild(loadingBody);
@@ -143,8 +143,8 @@
     const totalsCloseIcon = iconFactory('icon-end', closeHandler);
     const totalsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
 
-    const noResultsCloseIcon = iconFactory('icon-end', closeHandler);
-    const noResultsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+    const noEnrollmentsCloseIcon = iconFactory('icon-end', closeHandler);
+    const noEnrollmentsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
 
     const loadingBody = tableBodyFactory(closeIcon, null, 'Loading...');
 
@@ -164,7 +164,7 @@
     return icon;
   }
 
-  function tableBodyFactory(closeIcon, refreshIcon, totalOrText, fails, passes) {
+  function tableBodyFactory(closeIcon, refreshIcon, totalOrText, fails, passes, noScores) {
     const tableBody = document.createElement('tbody');
 
     const iconRow = document.createElement('tr');
@@ -179,68 +179,87 @@
 
     if (typeof totalOrText === 'number') {
       iconCell.colSpan = 2;
-      const topRow = document.createElement('tr');
-      const topLabelCell = document.createElement('td');
-      topLabelCell.style.padding = ' 0 0 0 0.5rem';
-      topLabelCell.style.lineHeight = '32px';
-      topLabelCell.style.width = '85%';
-      topLabelCell.innerText = 'Total students:';
-      const topValueCell = document.createElement('td');
-      topValueCell.style.padding = ' 0';
-      topValueCell.style.lineHeight = '32px';
-      topValueCell.style.width = '15%';
-      topValueCell.style.textAlign = 'center';
-      topValueCell.innerText = totalOrText;
-      topRow.append(topLabelCell, topValueCell);
-      const middleRow = document.createElement('tr');
-      const middleLabelCell = document.createElement('td');
-      middleLabelCell.style.padding = ' 0 0 0 0.5rem';
-      middleLabelCell.style.lineHeight = '32px';
-      middleLabelCell.style.width = '85%';
-      middleLabelCell.innerText = 'Projected fails:';
-      const middleValueCell = document.createElement('td');
-      middleValueCell.style.padding = ' 0';
-      middleValueCell.style.lineHeight = '32px';
-      middleValueCell.style.width = '15%';
-      middleValueCell.style.textAlign = 'center';
-      middleValueCell.innerText = fails;
-      middleRow.append(middleLabelCell, middleValueCell);
-      const bottomRow = document.createElement('tr');
-      const bottomLabelCell = document.createElement('td');
-      bottomLabelCell.style.padding = ' 0 0 0 0.5rem';
-      bottomLabelCell.style.lineHeight = '32px';
-      bottomLabelCell.style.width = '85%';
-      bottomLabelCell.innerText = 'Projected passes (49.5% +):';
-      const bottomValueCell = document.createElement('td');
-      bottomValueCell.style.padding = ' 0';
-      bottomValueCell.style.lineHeight = '32px';
-      bottomValueCell.style.width = '15%';
-      bottomValueCell.style.textAlign = 'center';
-      bottomValueCell.innerText = passes;
-      bottomRow.append(bottomLabelCell, bottomValueCell);
-      tableBody.append(topRow, middleRow,bottomRow);
+      const firstRow = document.createElement('tr');
+      const firstLabelCell = document.createElement('td');
+      firstLabelCell.style.padding = ' 0 0 0 0.5rem';
+      firstLabelCell.style.lineHeight = '32px';
+      firstLabelCell.style.width = '85%';
+      firstLabelCell.innerText = 'Total students:';
+      const firstValueCell = document.createElement('td');
+      firstValueCell.style.padding = ' 0';
+      firstValueCell.style.lineHeight = '32px';
+      firstValueCell.style.width = '15%';
+      firstValueCell.style.textAlign = 'center';
+      firstValueCell.innerText = totalOrText;
+      firstRow.append(firstLabelCell, firstValueCell);
+      const secondRow = document.createElement('tr');
+      const secondLabelCell = document.createElement('td');
+      secondLabelCell.style.padding = ' 0 0 0 0.5rem';
+      secondLabelCell.style.lineHeight = '32px';
+      secondLabelCell.style.width = '85%';
+      secondLabelCell.innerText = 'Projected fails:';
+      const secondValueCell = document.createElement('td');
+      secondValueCell.style.padding = ' 0';
+      secondValueCell.style.lineHeight = '32px';
+      secondValueCell.style.width = '15%';
+      secondValueCell.style.textAlign = 'center';
+      secondValueCell.innerText = fails;
+      secondRow.append(secondLabelCell, secondValueCell);
+      const thirdRow = document.createElement('tr');
+      const thirdLabelCell = document.createElement('td');
+      thirdLabelCell.style.padding = ' 0 0 0 0.5rem';
+      thirdLabelCell.style.lineHeight = '32px';
+      thirdLabelCell.style.width = '85%';
+      thirdLabelCell.innerText = 'Projected passes (49.5% +):';
+      const thirdValueCell = document.createElement('td');
+      thirdValueCell.style.padding = ' 0';
+      thirdValueCell.style.lineHeight = '32px';
+      thirdValueCell.style.width = '15%';
+      thirdValueCell.style.textAlign = 'center';
+      thirdValueCell.innerText = passes;
+      thirdRow.append(thirdLabelCell, thirdValueCell);
+      const fourthRow = document.createElement('tr');
+      const fourthLabelCell = document.createElement('td');
+      fourthLabelCell.style.padding = ' 0 0 0 0.5rem';
+      fourthLabelCell.style.lineHeight = '32px';
+      fourthLabelCell.style.width = '85%';
+      fourthLabelCell.innerText = 'No grades:';
+      const fourthValueCell = document.createElement('td');
+      fourthValueCell.style.padding = ' 0';
+      fourthValueCell.style.lineHeight = '32px';
+      fourthValueCell.style.width = '15%';
+      fourthValueCell.style.textAlign = 'center';
+      fourthValueCell.innerText = noScores;
+      fourthRow.append(fourthLabelCell, fourthValueCell);
+      tableBody.append(firstRow, secondRow, thirdRow, fourthRow);
     }
     else {
-      const topRow = document.createElement('tr');
-      const topCell = document.createElement('td');
-      topCell.style.padding = ' 0 0 0 0.5rem';
-      topCell.style.lineHeight = '32px';
-      topCell.innerHTML = '&nbsp;';
-      topRow.append(topCell);
-      const middleRow = document.createElement('tr');
-      const middleCell = document.createElement('td');
-      middleCell.style.padding = ' 0 0 0 0.5rem';
-      middleCell.style.lineHeight = '32px';
-      middleCell.style.textAlign = 'center';
-      middleCell.innerText = totalOrText;
-      middleRow.append(middleCell);
-      const bottomRow = document.createElement('tr');
-      const bottomCell = document.createElement('td');
-      bottomCell.style.padding = ' 0 0 0 0.5rem';
-      bottomCell.style.lineHeight = '32px';
-      bottomCell.innerHTML = '&nbsp;';
-      bottomRow.append(bottomCell);
-      tableBody.append(topRow, middleRow,bottomRow);
+      const firstRow = document.createElement('tr');
+      const firstCell = document.createElement('td');
+      firstCell.style.padding = ' 0 0 0 0.5rem';
+      firstCell.style.lineHeight = '32px';
+      firstCell.innerHTML = '&nbsp;';
+      firstRow.append(firstCell);
+      const secondRow = document.createElement('tr');
+      const secondCell = document.createElement('td');
+      secondCell.style.padding = ' 0 0 0 0.5rem';
+      secondCell.style.lineHeight = '32px';
+      secondCell.style.textAlign = 'center';
+      secondCell.innerText = totalOrText;
+      secondRow.append(secondCell);
+      const thirdRow = document.createElement('tr');
+      const thirdCell = document.createElement('td');
+      thirdCell.style.padding = ' 0 0 0 0.5rem';
+      thirdCell.style.lineHeight = '32px';
+      thirdCell.innerHTML = '&nbsp;';
+      thirdRow.append(thirdCell);
+      const fourthRow = document.createElement('tr');
+      const fourthCell = document.createElement('td');
+      fourthCell.style.padding = ' 0 0 0 0.5rem';
+      fourthCell.style.lineHeight = '32px';
+      fourthCell.innerHTML = '&nbsp;';
+      fourthRow.append(fourthCell);
+      tableBody.append(firstRow, secondRow, thirdRow, fourthRow);
     }
 
     return tableBody;
