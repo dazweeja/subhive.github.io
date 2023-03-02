@@ -151,7 +151,7 @@
     setTimeout(function() {
       const header = document.querySelector(selector);
       header.appendChild(statsIcon);
-    }, 1000);
+    }, 1500);
   }
 
   function iconFactory(className, handler, marginRight) {
