@@ -48,6 +48,22 @@
       .then(submissions => {
         parseSubmissions(submissions, users);
 
+        let hasFiles = false;
+        for (const userFiles in users) {
+          if (userFiles.length) {
+            hasFiles = true;
+            break;
+          }
+        }
+
+        if (!hasFiles) return;
+
+        const overlayBackground = overlayBackgroundFactory();
+        const progress = progressFactory(5);
+        const progressDialog = dialogFactory(progress);
+        let overlay = null;
+        document.body.append(overlayBackground);
+
         const rows = table.getElementsByClassName('rosterUser');
 
         for (const row of rows) {
@@ -58,12 +74,18 @@
 
           if (!(userId in users) || users[userId].length === 0) continue;
 
+          const userFiles = users[userId];
+
           const link = row.getElementsByClassName('admin-links');
 
           if (link.length > 0) {
             const parent = link[0].parentNode;
 
-            const overlayBackground = overlayBackgroundFactory();
+            const nameElement = row.getElementsByClassName('roster_user_name');
+            const name = nameElement[0].innerText.trim() + ' (' + userId + ')';
+
+            let finishedDialog = null;
+            let startDialog = null;
 
             const closeButton = document.createElement('button');
             closeButton.classList.add('ui-dialog-titlebar-close', 'ui-corner-all');
@@ -75,47 +97,49 @@
             closeButton.addEventListener('click', function(event) {
               overlayBackground.style.display = 'none';
             });
-            
-            const progress = progressFactory(5);
-            const overlay = overlayFactory(closeButton, progress);
-            overlayBackground.append(overlay);
-            document.body.append(overlayBackground);
-            let finished = null;
 
-            const zipIcon = iconFactory('icon-zipped', async function(event) {
-              if (finished) {
-                finished.replaceWith(progress);
-              }
-
+            const zipIcon = iconFactory('icon-zipped', 'Download all assignment submissions for this student', async function(event) {
               overlayBackground.style.display = 'flex';
 
-              /*const fileDownloads = [
-                {
-                  name: 'folder1/Sonnet+1.docx',
-                  size: 123,
-                  input: 'https://collarts.instructure.com/files/719210/download?download_frd=1&verifier=Cgih3QKobSW3C8jrM3MRdtvzqqi2W1weUq6mbM3w'
-                },
-                {
-                  name: 'folder2/assignment_dummy.docx',
-                  size: 123,
-                  input: 'https://collarts.instructure.com/files/719214/download?download_frd=1&verifier=nqRhGmK617rnNh0sFfwItlodt0I6ue1rcP2QWXSQ'
-                },
-              ];*/
-
-              const blob = await downloadZip(lazyFetch(users[userId])).blob();
-              //const blob = await downloadZip(lazyFetch(fileDownloads)).blob();
-              const size = formatBytes(blob.size)
               const link = document.createElement('a');
-              link.href = URL.createObjectURL(blob);
-              link.download = userId + '.zip';
               const linkText = document.createElement('strong');
-              linkText.innerText = 'Click here to download ' + size;
+              linkText.innerText = 'Begin zip creation';
               link.append(linkText);
+              link.addEventListener('click', async function(event) {
+                startDialog.replaceWith(progressDialog);
 
-              finished = progressFactory(100, link);
-              progress.replaceWith(finished);
+                const blob = await downloadZip(lazyFetch(userFiles)).blob();
+                const size = formatBytes(blob.size)
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = name + '.zip';
+                const linkText = document.createElement('strong');
+                linkText.innerText = 'Click here to download ' + size;
+                link.append(linkText);
 
-              link.click();
+                const finishedProgress = progressFactory(100, link);
+                finishedDialog = dialogFactory(finishedProgress);
+                overlay.removeChild(overlay.lastElementChild);
+                overlay.append(finishedDialog);
+
+                link.click();
+              });
+
+              if (!startDialog) {
+                startDialog = dialogFactory(null, name, userFiles, link);
+              }
+
+              if (overlay) {
+                if (overlay.children.length > 1) {
+                  overlay.removeChild(overlay.lastElementChild);
+                }
+
+                overlay.append(startDialog);
+              }
+              else {
+                overlay = overlayFactory(startDialog, closeButton);
+                overlayBackground.append(overlay);
+              }
             });
 
             parent.insertBefore(zipIcon, link[0]);
@@ -404,11 +428,12 @@
     }(t), i)), {headers: f})
   }
 
-  function iconFactory(className, handler, marginRight) {
+  function iconFactory(className, title = '', handler, marginRight) {
     const icon = document.createElement('i');
     icon.classList.add('icon-Line', className);
     icon.setAttribute('aria-hidden',  'true');
     icon.style.cursor = 'pointer';
+    icon.title = title;
     icon.addEventListener('click', handler);
     if (marginRight) icon.style.marginRight = marginRight;
     return icon;
@@ -447,10 +472,46 @@
     return wrapper;
   }
 
-  function overlayFactory(closeButton, progress) {
+  function dialogFactory(progress, name, userFiles, link) {
+    const dialog = document.createElement('div');
+    dialog.id = 'download_submissions_dialog';
+    dialog.classList.add('ui-dialog-content', 'ui-widget-content');
+    dialog.style.width = 'auto';
+    dialog.style.height = 'auto';
+    dialog.style.minHeight = '49px';
+    if (progress) {
+      dialog.innerHTML = '<i class="icon-download" aria-hidden="true"></i> <strong>Your student submissions are being gathered</strong> and compressed into a zip file. This may take some time, depending on the size and number of submission files.';
+      dialog.append(progress);
+    }
+    else {
+      let totalBytes = 0;
+      for (const file of userFiles) {
+        console.log(file);
+       totalBytes += file.size;
+      }
+
+      let dialogContent = '<div><i class="icon-download" aria-hidden="true"></i> <strong>Download a compressed zip file</strong> containing all submission files for the selected student. This may take some time, depending on the size and number of submission files.</div>';
+      dialogContent += '<div style="margin: 10px 0; text-align: center">Name: ' + name + '<br />Number of files: ' + userFiles.length + '<br />Estimated file size: ' + formatBytes(totalBytes) + '</div>';
+      dialog.innerHTML = dialogContent;
+
+      const statusBox = document.createElement('div');
+      statusBox.classList.add('status_box');
+      statusBox.style.textAlign = 'center';
+      const statusText = document.createElement('span');
+      statusText.classList.add('status');
+      statusText.append(link);
+      statusBox.append(statusText);
+      dialog.append(statusBox);
+    }
+
+    return dialog;
+  }
+
+  function overlayFactory(dialog, closeButton) {
     const overlay = document.createElement('div');
     overlay.classList.add('ui-dialog', 'ui-widget', 'ui-widget-content');
     overlay.style.zIndex = '999';
+    overlay.style.width = '400px';
     overlay.style.backgroundColor = 'white';
     overlay.style.border = '1px solid #bbb';
     const titleBar = document.createElement('div');
@@ -458,17 +519,7 @@
     const title = document.createElement('span');
     title.classList.add('ui-dialog-title');
     title.innerText = 'Download Assignment Submissions';
-
-    const dialog = document.createElement('div');
-    dialog.id = 'download_submissions_dialog';
-    dialog.classList.add('ui-dialog-content', 'ui-widget-content');
-    dialog.style.width = 'auto';
-    dialog.style.height = 'auto';
-    dialog.style.minHeight = '49px';
-    dialog.innerHTML = '<i class="icon-download" aria-hidden="true"></i> <strong>Your student submissions are being gathered</strong> and compressed into a zip file. This may take some time, depending on the size and number of submission files.'
-
     titleBar.append(title, closeButton);
-    dialog.append(progress);
     overlay.append(titleBar, dialog);
 
     return overlay;
