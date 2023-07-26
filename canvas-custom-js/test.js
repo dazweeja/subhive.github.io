@@ -1,15 +1,8 @@
-// ==UserScript==
-// @name        Student Assignment Export Tool
-// @namespace   https://github.com/dazweeja/subhive.github.io
-// @author      Darren Smith <darren@spacedog.com.au>
-// @description Script for adding active enrollments to canvas user page
-// @version     0.1
-// @match       https://collarts.instructure.com/*
-// @match       https://collarts.test.instructure.com/*
-// @run-at      document-body
-// ==/UserScript==
-(function () {
-  'use strict';
+  /* STUDENT SUBMISSION PACKAGE TOOL
+   *  - Add a button on the people page to download all submissions for a specific student
+   *
+   *  Last updated: 26.07.2023
+   * /*********************/
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
   const selector = '#main .roster';
@@ -86,7 +79,6 @@
 
             let finishedDialog = null;
             let startDialog = null;
-            let objectURL = null;
 
             let totalBytes = 0;
             for (const file of userFiles) {
@@ -103,12 +95,10 @@
             closeButton.append(closeText);
             closeButton.style.cursor = 'pointer';
             closeButton.addEventListener('click', function(event) {
-              if (objectURL) URL.revokeObjectURL(objectURL);
               overlayBackground.style.display = 'none';
             });
 
             const zipIcon = iconFactory('icon-zipped', 'Download all assignment submissions for this student', async function(event) {
-              objectURL = null;
               overlayBackground.style.display = 'flex';
 
               const link = document.createElement('a');
@@ -122,8 +112,7 @@
                 const blob = await downloadZip(lazyFetch(userFiles)).blob();
                 const size = formatBytes(blob.size);
                 const link = document.createElement('a');
-                objectURL = URL.createObjectURL(blob);
-                link.href = objectURL;
+                link.href = URL.createObjectURL(blob);
                 link.download = name + '.zip';
                 const linkText = document.createElement('strong');
                 linkText.innerText = 'download the file manually [ZIP, ' + size + ']';
@@ -566,4 +555,3 @@
   }
 
   init();
-})();
