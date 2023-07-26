@@ -62,18 +62,34 @@
 
           if (link.length > 0) {
             const parent = link[0].parentNode;
-            const closeIcon = iconFactory('icon-zipped', async function(event) {
-              const progress = progressFactory(5);
-              const overlay = overlayFactory(progress);
-              const tableRect = table.getBoundingClientRect();
-              const parentRect = parent.getBoundingClientRect();
 
-              table.style.position = 'relative';
-              overlay.style.top = parentRect.top - tableRect.top + 'px';
-              overlay.style.left = parentRect.right - tableRect.left - 458 + 'px';
-              table.append(overlay);
+            const overlayBackground = overlayBackgroundFactory();
 
-              const fileDownloads = [
+            const closeButton = document.createElement('button');
+            closeButton.classList.add('ui-dialog-titlebar-close', 'ui-corner-all');
+            const closeText = document.createElement('span');
+            closeText.classList.add('ui-icon', 'ui-icon-closethick');
+            closeText.innerText = 'Close';
+            closeButton.append(closeText);
+            closeButton.style.cursor = 'pointer';
+            closeButton.addEventListener('click', function(event) {
+              overlayBackground.style.display = 'none';
+            });
+            
+            const progress = progressFactory(5);
+            const overlay = overlayFactory(closeButton, progress);
+            overlayBackground.append(overlay);
+            document.body.append(overlayBackground);
+            let finished = null;
+
+            const zipIcon = iconFactory('icon-zipped', async function(event) {
+              if (finished) {
+                finished.replaceWith(progress);
+              }
+
+              overlayBackground.style.display = 'flex';
+
+              /*const fileDownloads = [
                 {
                   name: 'folder1/Sonnet+1.docx',
                   size: 123,
@@ -84,24 +100,25 @@
                   size: 123,
                   input: 'https://collarts.instructure.com/files/719214/download?download_frd=1&verifier=nqRhGmK617rnNh0sFfwItlodt0I6ue1rcP2QWXSQ'
                 },
-              ];
+              ];*/
 
               const blob = await downloadZip(lazyFetch(users[userId])).blob();
-              //const blob = await downloadZip(lazyFetch(fileDownloads3)).blob();
-              console.log(blob.size);
-
-              const finished = progressFactory(100);
-              progress.replaceWith(finished);
-
-              // make and click a temporary link to download the Blob
-              const link = document.createElement("a");
+              //const blob = await downloadZip(lazyFetch(fileDownloads)).blob();
+              const size = formatBytes(blob.size)
+              const link = document.createElement('a');
               link.href = URL.createObjectURL(blob);
               link.download = userId + '.zip';
+              const linkText = document.createElement('strong');
+              linkText.innerText = 'Click here to download ' + size;
+              link.append(linkText);
+
+              finished = progressFactory(100, link);
+              progress.replaceWith(finished);
+
               link.click();
-              link.remove();
             });
 
-            parent.insertBefore(closeIcon, link[0]);
+            parent.insertBefore(zipIcon, link[0]);
           }
         }
       })
@@ -366,19 +383,6 @@
     return e instanceof File || e instanceof Response ? [[e], [e]] : [[e.input, e.name, e.size], [e.input, e.lastModified]]
   }
 
-  const predictLength = e => function (e) {
-    let n;
-    let t = 22;
-    for (const r of e) {
-      if (!r.i) throw new Error("Every file must have a non-empty name.");
-      if (isNaN(null != (n = r.u) ? n : NaN)) throw new Error(`Missing size for file "${(new TextDecoder).decode(r.i)}".`);
-      t += 2 * r.i.length + r.u + 92
-    }
-    return t
-  }(function* (e) {
-    for (const n of e) yield a(...D(n)[0])
-  }(e));
-
   function downloadZip(t, i = {}) {
     const f = {"Content-Type": "application/zip", "Content-Disposition": "attachment"};
     return Number.isInteger(i.length) && i.length > 0 && (f["Content-Length"] = i.length), i.metadata && (f["Content-Length"] = h(i.metadata)), new Response(o(async function* (t, r) {
@@ -410,7 +414,7 @@
     return icon;
   }
 
-  function progressFactory(progressValue) {
+  function progressFactory(progressValue, link) {
     const wrapper = document.createElement('div');
     const progress = document.createElement('div');
     progress.classList.add('progress', 'ui-progressbar', 'ui-widget', 'ui-widget-content', 'ui-corner-all');
@@ -429,7 +433,8 @@
     const statusText = document.createElement('span');
     statusText.classList.add('status');
     if (progressValue == 100) {
-      statusText.innerHTML = 'Finished!  Redirecting to File...<br><a href="/courses/2523/assignments/14836/submissions?zip=1"><b>Click here to download 10.4 KB</b></a>';
+      statusText.innerHTML = 'Finished!  Redirecting to File...<br />';
+      statusText.append(link);
     }
     else {
       statusText.innerText = 'Gathering Files (' + progressValue + '.000%)...';
@@ -442,12 +447,10 @@
     return wrapper;
   }
 
-  function overlayFactory(progress) {
+  function overlayFactory(closeButton, progress) {
     const overlay = document.createElement('div');
     overlay.classList.add('ui-dialog', 'ui-widget', 'ui-widget-content');
     overlay.style.zIndex = '999';
-    overlay.style.position = 'absolute';
-    overlay.style.top = '0';
     overlay.style.backgroundColor = 'white';
     overlay.style.border = '1px solid #bbb';
     const titleBar = document.createElement('div');
@@ -455,11 +458,7 @@
     const title = document.createElement('span');
     title.classList.add('ui-dialog-title');
     title.innerText = 'Download Assignment Submissions';
-    const closeButton = document.createElement('button');
-    closeButton.classList.add('ui-dialog-titlebar-close', 'ui-corner-all');
-    const closeText = document.createElement('span');
-    closeText.classList.add('ui-icon', 'ui-icon-closethick');
-    closeText.innerText = 'Close';
+
     const dialog = document.createElement('div');
     dialog.id = 'download_submissions_dialog';
     dialog.classList.add('ui-dialog-content', 'ui-widget-content');
@@ -468,12 +467,29 @@
     dialog.style.minHeight = '49px';
     dialog.innerHTML = '<i class="icon-download" aria-hidden="true"></i> <strong>Your student submissions are being gathered</strong> and compressed into a zip file. This may take some time, depending on the size and number of submission files.'
 
-    closeButton.append(closeText);
     titleBar.append(title, closeButton);
     dialog.append(progress);
     overlay.append(titleBar, dialog);
 
     return overlay;
+  }
+
+  function overlayBackgroundFactory() {
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('ui-widget-overlay');
+    wrapper.style.position = 'fixed';
+    wrapper.style.width = '100%';
+    wrapper.style.height = '100%';
+    wrapper.style.zIndex = '998';
+    wrapper.style.top = '0';
+    wrapper.style.left = '0';
+    wrapper.style.overflowX = 'hidden';
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.display = 'none';
+
+    return wrapper;
   }
 
   async function *lazyFetch(files) {
@@ -485,8 +501,7 @@
 
     const k = 1024
     const dm = decimals < 0 ? 0 : decimals
-    const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
-
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
