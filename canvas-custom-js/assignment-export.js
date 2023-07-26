@@ -87,6 +87,13 @@
             let finishedDialog = null;
             let startDialog = null;
 
+            let totalBytes = 0;
+            for (const file of userFiles) {
+              totalBytes += file.size;
+            }
+
+            const size = formatBytes(totalBytes);
+
             const closeButton = document.createElement('button');
             closeButton.classList.add('ui-dialog-titlebar-close', 'ui-corner-all');
             const closeText = document.createElement('span');
@@ -102,19 +109,20 @@
               overlayBackground.style.display = 'flex';
 
               const link = document.createElement('a');
+              link.style.cursor = 'pointer';
               const linkText = document.createElement('strong');
-              linkText.innerText = 'Begin zip creation';
+              linkText.innerHTML = '<div><i class="icon-download" aria-hidden="true"></i>  Download Submission Package [ZIP, ' + size + ']';
               link.append(linkText);
               link.addEventListener('click', async function(event) {
                 startDialog.replaceWith(progressDialog);
 
                 const blob = await downloadZip(lazyFetch(userFiles)).blob();
-                const size = formatBytes(blob.size)
+                const size = formatBytes(blob.size);
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = name + '.zip';
                 const linkText = document.createElement('strong');
-                linkText.innerText = 'Click here to download ' + size;
+                linkText.innerText = 'download zip file manually.';
                 link.append(linkText);
 
                 const finishedProgress = progressFactory(100, link);
@@ -126,7 +134,7 @@
               });
 
               if (!startDialog) {
-                startDialog = dialogFactory(null, name, userFiles, link);
+                startDialog = dialogFactory(null, name, userFiles, size, link);
               }
 
               if (overlay) {
@@ -458,11 +466,11 @@
     const statusText = document.createElement('span');
     statusText.classList.add('status');
     if (progressValue == 100) {
-      statusText.innerHTML = 'Finished!  Redirecting to File...<br />';
+      statusText.innerHTML = 'Your download will begin automatically.<br />If it didn\'t start, ';
       statusText.append(link);
     }
     else {
-      statusText.innerText = 'Gathering Files (' + progressValue + '.000%)...';
+      statusText.innerText = 'Gathering Files (' + progressValue + '%)...';
     }
 
     progress.append(progressBar);
@@ -472,7 +480,7 @@
     return wrapper;
   }
 
-  function dialogFactory(progress, name, userFiles, link) {
+  function dialogFactory(progress, name, userFiles, size, link) {
     const dialog = document.createElement('div');
     dialog.id = 'download_submissions_dialog';
     dialog.classList.add('ui-dialog-content', 'ui-widget-content');
@@ -484,14 +492,8 @@
       dialog.append(progress);
     }
     else {
-      let totalBytes = 0;
-      for (const file of userFiles) {
-        console.log(file);
-       totalBytes += file.size;
-      }
-
-      let dialogContent = '<div><i class="icon-download" aria-hidden="true"></i> <strong>Download a compressed zip file</strong> containing all submission files for the selected student. This may take some time, depending on the size and number of submission files.</div>';
-      dialogContent += '<div style="margin: 10px 0; text-align: center">Name: ' + name + '<br />Number of files: ' + userFiles.length + '<br />Estimated file size: ' + formatBytes(totalBytes) + '</div>';
+      let dialogContent = '<strong>Download a compressed zip file</strong> containing all assignment submission files for the selected student. This may take some time, depending on the size and number of submission files.</div>';
+      dialogContent += '<div style="margin: 10px 0; text-align: center"><strong>Student Name:</strong> ' + name + '<br /><strong>Number of files:</strong> ' + userFiles.length + '<br /><strong>Estimated file size:</strong> ' + size + '</div>';
       dialog.innerHTML = dialogContent;
 
       const statusBox = document.createElement('div');
