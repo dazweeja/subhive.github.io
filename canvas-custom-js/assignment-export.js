@@ -12,27 +12,85 @@
   'use strict';
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
-  const selector = '#main .roster';
 
-  function init() {
-    if (!window.location.pathname.match(/\/courses\/\d+\/users\/?$/)) return;
-    if (!getIsTeacher()) return;
+  function exportInit() {
+    if (window.location.pathname.match(/\/courses\/\d+\/users\/?$/) && getIsTeacher()) {
+      "stream" in Blob.prototype || Object.defineProperty(Blob.prototype, "stream", {
+        value() {
+          return new Response(this).body
+        }
+      });
 
-    "stream" in Blob.prototype || Object.defineProperty(Blob.prototype, "stream", {
-      value() {
-        return new Response(this).body
-      }
-    });
-
-    let x = 0;
-    let interval = setInterval(function () {
-      const table = document.querySelector(selector);
-      if (table || ++x === 10) {
-        clearInterval(interval);
-        addTableCells(table);
-      }
-    }, 500);
+      let x = 0;
+      let interval = setInterval(function () {
+        const table = document.querySelector('#main .roster');
+        if (table || ++x === 10) {
+          clearInterval(interval);
+          addTableCells(table);
+        }
+      }, 500);
+    }
   }
+
+  /*
+   * Common functions start
+   */
+
+  function getCourseId() {
+    let courseId = null;
+    try {
+      const courseRegex = new RegExp('/courses/([0-9]+)');
+      const matches = courseRegex.exec(window.location.href);
+      if (matches) {
+        courseId = matches[1];
+      }
+      else {
+        throw new Error('Unable to detect Course ID');
+      }
+    }
+    catch (e) {
+      errorHandler(e);
+    }
+    return courseId;
+  }
+
+  function getIsTeacher() {
+    let isTeacher = false;
+    const teacherExp = /"current_user_roles":\[(?:[^\]]*)"teacher"(?:[^\]]*)\]/;
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const teacherMatches = scripts[i].text.match(teacherExp);
+      if (teacherMatches != null) {
+        isTeacher = true;
+        break;
+      }
+    }
+
+    return isTeacher;
+  }
+
+  function nextURL(linkTxt) {
+    let nextUrl = null;
+    if (linkTxt) {
+      const links = linkTxt.split(',');
+      const nextRegEx = /^<(.*)>; rel="next"$/;
+      for (let i = 0; i < links.length; i++) {
+        const matches = links[i].match(nextRegEx);
+        if (matches) {
+          nextUrl = matches[1];
+        }
+      }
+    }
+    return nextUrl;
+  }
+
+  function errorHandler(e) {
+    console.log(e.name + ': ' + e.message);
+  }
+
+  /*
+   * Common functions end
+   */
 
   function addTableCells(table) {
     const courseId = getCourseId();
@@ -102,12 +160,12 @@
             closeText.innerText = 'Close';
             closeButton.append(closeText);
             closeButton.style.cursor = 'pointer';
-            closeButton.addEventListener('click', function(event) {
+            closeButton.addEventListener('click', function (event) {
               if (objectURL) URL.revokeObjectURL(objectURL);
               overlayBackground.style.display = 'none';
             });
 
-            const zipIcon = iconFactory('icon-zipped', 'Download all assignment submissions for this student', async function(event) {
+            const zipIcon = iconFactory('icon-zipped', 'Download all assignment submissions for this student', async function (event) {
               objectURL = null;
               overlayBackground.style.display = 'flex';
 
@@ -116,7 +174,7 @@
               const linkText = document.createElement('strong');
               linkText.innerHTML = '<div><i class="icon-download" aria-hidden="true"></i>  Download Submission Package [ZIP, ' + size + ']';
               link.append(linkText);
-              link.addEventListener('click', async function(event) {
+              link.addEventListener('click', async function (event) {
                 startDialog.replaceWith(progressDialog);
 
                 const blob = await downloadZip(lazyFetch(userFiles)).blob();
@@ -160,39 +218,6 @@
       })
       .catch(e => errorHandler(e));
 
-  }
-
-  function getCourseId() {
-    let courseId = null;
-    try {
-      const courseRegex = new RegExp('/courses/([0-9]+)');
-      const matches = courseRegex.exec(window.location.href);
-      if (matches) {
-        courseId = matches[1];
-      }
-      else {
-        throw new Error('Unable to detect Course ID');
-      }
-    }
-    catch (e) {
-      errorHandler(e);
-    }
-    return courseId;
-  }
-
-  function getIsTeacher() {
-    let isTeacher = false;
-    const teacherExp = /"current_user_roles":\[(?:[^\]]*)"teacher"(?:[^\]]*)\]/;
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-      const teacherMatches = scripts[i].text.match(teacherExp);
-      if (teacherMatches != null) {
-        isTeacher = true;
-        break;
-      }
-    }
-
-    return isTeacher;
   }
 
   function getSubmissions(url) {
@@ -244,8 +269,11 @@
               if ('assignment_id' in submission && Number.isInteger(submission.assignment_id)) {
                 submission.attachments.forEach(attachment => {
                   if ('url' in attachment) {
-                    console.log(attachment);
-                    assignments.push({name: submission.assignment_id + '/' + attachment.display_name, size: attachment.size, input: attachment.url});
+                    assignments.push({
+                      name: submission.assignment_id + '/' + attachment.display_name,
+                      size: attachment.size,
+                      input: attachment.url
+                    });
                   }
                 })
               }
@@ -258,23 +286,129 @@
     });
   }
 
-  function nextURL(linkTxt) {
-    let nextUrl = null;
-    if (linkTxt) {
-      const links = linkTxt.split(',');
-      const nextRegEx = /^<(.*)>; rel="next"$/;
-      for (let i = 0; i < links.length; i++) {
-        const matches = links[i].match(nextRegEx);
-        if (matches) {
-          nextUrl = matches[1];
-        }
-      }
-    }
-    return nextUrl;
+  function iconFactory(className, title = '', handler, marginRight) {
+    const icon = document.createElement('i');
+    icon.classList.add('icon-Line', className);
+    icon.setAttribute('aria-hidden', 'true');
+    icon.style.cursor = 'pointer';
+    icon.title = title;
+    icon.addEventListener('click', handler);
+    if (marginRight) icon.style.marginRight = marginRight;
+    return icon;
   }
 
-  function errorHandler(e) {
-    console.log(e.name + ': ' + e.message);
+  function progressFactory(progressValue, link) {
+    const wrapper = document.createElement('div');
+    const progress = document.createElement('div');
+    progress.classList.add('progress', 'ui-progressbar', 'ui-widget', 'ui-widget-content', 'ui-corner-all');
+    progress.style.margin = '10px 5px';
+    const progressBar = document.createElement('div');
+    progressBar.classList.add('ui-progressbar-value', 'ui-widget-header', 'ui-corner-left');
+    progressBar.style.display = 'block';
+    progressBar.style.width = progressValue + '%';
+    const statusBox = document.createElement('div');
+    statusBox.classList.add('status_box');
+    statusBox.style.textAlign = 'center';
+    const statusImage = document.createElement('img');
+    statusImage.classList.add('status_loader');
+    statusImage.src = 'https://du11hjcvx0uqb.cloudfront.net/dist/images/ajax-loader-small-5ae081ad76.gif';
+    if (progressValue == 100) statusImage.style.visibility = 'hidden';
+    const statusText = document.createElement('span');
+    statusText.classList.add('status');
+    if (progressValue == 100) {
+      statusText.innerHTML = 'Your download will begin automatically.<br />If it does\'t start, ';
+      statusText.append(link);
+    }
+    else {
+      statusText.innerText = 'Gathering Files (' + progressValue + '%)...';
+    }
+
+    progress.append(progressBar);
+    statusBox.append(statusImage, ' ', statusText);
+    wrapper.append(progress, statusBox);
+
+    return wrapper;
+  }
+
+  function dialogFactory(progress, name, userFiles, size, link) {
+    const dialog = document.createElement('div');
+    dialog.id = 'download_submissions_dialog';
+    dialog.classList.add('ui-dialog-content', 'ui-widget-content');
+    dialog.style.width = 'auto';
+    dialog.style.height = 'auto';
+    dialog.style.minHeight = '49px';
+    if (progress) {
+      dialog.innerHTML = '<strong>Your student assignment submissions are being gathered</strong> and compressed into a zip file. This may take some time, depending on the size and number of submission files.';
+      dialog.append(progress);
+    }
+    else {
+      let dialogContent = '<strong>Download a compressed zip file</strong> containing all assignment submissions for the selected student. This may take some time, depending on the size and number of submission files.</div>';
+      dialogContent += '<div style="margin: 10px 0; text-align: center"><strong>Student Name:</strong> ' + name + '<br /><strong>Number of files:</strong> ' + userFiles.length + '<br /><strong>Estimated file size:</strong> ' + size + '</div>';
+      dialog.innerHTML = dialogContent;
+
+      const statusBox = document.createElement('div');
+      statusBox.classList.add('status_box');
+      statusBox.style.textAlign = 'center';
+      const statusText = document.createElement('span');
+      statusText.classList.add('status');
+      statusText.append(link);
+      statusBox.append(statusText);
+      dialog.append(statusBox);
+    }
+
+    return dialog;
+  }
+
+  function overlayFactory(dialog, closeButton) {
+    const overlay = document.createElement('div');
+    overlay.classList.add('ui-dialog', 'ui-widget', 'ui-widget-content');
+    overlay.style.zIndex = '999';
+    overlay.style.width = '450px';
+    overlay.style.padding = '0 0 10px 0';
+    overlay.style.backgroundColor = 'white';
+    overlay.style.border = '1px solid #bbb';
+    const titleBar = document.createElement('div');
+    titleBar.classList.add('ui-dialog-titlebar', 'ui-widget-header', 'ui-helper-clearfix');
+    const title = document.createElement('span');
+    title.classList.add('ui-dialog-title');
+    title.innerText = 'Download Assignment Submissions';
+    titleBar.append(title, closeButton);
+    overlay.append(titleBar, dialog);
+
+    return overlay;
+  }
+
+  function overlayBackgroundFactory() {
+    const wrapper = document.createElement('div');
+    wrapper.classList.add('ui-widget-overlay');
+    wrapper.style.position = 'fixed';
+    wrapper.style.width = '100%';
+    wrapper.style.height = '100%';
+    wrapper.style.zIndex = '998';
+    wrapper.style.top = '0';
+    wrapper.style.left = '0';
+    wrapper.style.overflowX = 'hidden';
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.display = 'none';
+
+    return wrapper;
+  }
+
+  async function* lazyFetch(files) {
+    for (const {name, input} of files) yield {name, input: await fetch(input)}
+  }
+
+  function formatBytes(bytes, decimals = 1) {
+    if (!+bytes) return '0 Bytes'
+
+    const k = 1024
+    const dm = decimals < 0 ? 0 : decimals
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
   }
 
   const e = e => new DataView(new ArrayBuffer(e)), n = e => new Uint8Array(e.buffer || e),
@@ -440,130 +574,5 @@
     }(t), i)), {headers: f})
   }
 
-  function iconFactory(className, title = '', handler, marginRight) {
-    const icon = document.createElement('i');
-    icon.classList.add('icon-Line', className);
-    icon.setAttribute('aria-hidden',  'true');
-    icon.style.cursor = 'pointer';
-    icon.title = title;
-    icon.addEventListener('click', handler);
-    if (marginRight) icon.style.marginRight = marginRight;
-    return icon;
-  }
-
-  function progressFactory(progressValue, link) {
-    const wrapper = document.createElement('div');
-    const progress = document.createElement('div');
-    progress.classList.add('progress', 'ui-progressbar', 'ui-widget', 'ui-widget-content', 'ui-corner-all');
-    progress.style.margin = '10px 5px';
-    const progressBar = document.createElement('div');
-    progressBar.classList.add('ui-progressbar-value', 'ui-widget-header', 'ui-corner-left');
-    progressBar.style.display = 'block';
-    progressBar.style.width = progressValue + '%';
-    const statusBox = document.createElement('div');
-    statusBox.classList.add('status_box');
-    statusBox.style.textAlign = 'center';
-    const statusImage = document.createElement('img');
-    statusImage.classList.add('status_loader');
-    statusImage.src = 'https://du11hjcvx0uqb.cloudfront.net/dist/images/ajax-loader-small-5ae081ad76.gif';
-    if (progressValue == 100) statusImage.style.visibility = 'hidden';
-    const statusText = document.createElement('span');
-    statusText.classList.add('status');
-    if (progressValue == 100) {
-      statusText.innerHTML = 'Your download will begin automatically.<br />If it does\'t start, ';
-      statusText.append(link);
-    }
-    else {
-      statusText.innerText = 'Gathering Files (' + progressValue + '%)...';
-    }
-
-    progress.append(progressBar);
-    statusBox.append(statusImage, ' ', statusText);
-    wrapper.append(progress, statusBox);
-
-    return wrapper;
-  }
-
-  function dialogFactory(progress, name, userFiles, size, link) {
-    const dialog = document.createElement('div');
-    dialog.id = 'download_submissions_dialog';
-    dialog.classList.add('ui-dialog-content', 'ui-widget-content');
-    dialog.style.width = 'auto';
-    dialog.style.height = 'auto';
-    dialog.style.minHeight = '49px';
-    if (progress) {
-      dialog.innerHTML = '<strong>Your student assignment submissions are being gathered</strong> and compressed into a zip file. This may take some time, depending on the size and number of submission files.';
-      dialog.append(progress);
-    }
-    else {
-      let dialogContent = '<strong>Download a compressed zip file</strong> containing all assignment submissions for the selected student. This may take some time, depending on the size and number of submission files.</div>';
-      dialogContent += '<div style="margin: 10px 0; text-align: center"><strong>Student Name:</strong> ' + name + '<br /><strong>Number of files:</strong> ' + userFiles.length + '<br /><strong>Estimated file size:</strong> ' + size + '</div>';
-      dialog.innerHTML = dialogContent;
-
-      const statusBox = document.createElement('div');
-      statusBox.classList.add('status_box');
-      statusBox.style.textAlign = 'center';
-      const statusText = document.createElement('span');
-      statusText.classList.add('status');
-      statusText.append(link);
-      statusBox.append(statusText);
-      dialog.append(statusBox);
-    }
-
-    return dialog;
-  }
-
-  function overlayFactory(dialog, closeButton) {
-    const overlay = document.createElement('div');
-    overlay.classList.add('ui-dialog', 'ui-widget', 'ui-widget-content');
-    overlay.style.zIndex = '999';
-    overlay.style.width = '450px';
-    overlay.style.padding = '0 0 10px 0';
-    overlay.style.backgroundColor = 'white';
-    overlay.style.border = '1px solid #bbb';
-    const titleBar = document.createElement('div');
-    titleBar.classList.add('ui-dialog-titlebar', 'ui-widget-header', 'ui-helper-clearfix');
-    const title = document.createElement('span');
-    title.classList.add('ui-dialog-title');
-    title.innerText = 'Download Assignment Submissions';
-    titleBar.append(title, closeButton);
-    overlay.append(titleBar, dialog);
-
-    return overlay;
-  }
-
-  function overlayBackgroundFactory() {
-    const wrapper = document.createElement('div');
-    wrapper.classList.add('ui-widget-overlay');
-    wrapper.style.position = 'fixed';
-    wrapper.style.width = '100%';
-    wrapper.style.height = '100%';
-    wrapper.style.zIndex = '998';
-    wrapper.style.top = '0';
-    wrapper.style.left = '0';
-    wrapper.style.overflowX = 'hidden';
-    wrapper.style.display = 'flex';
-    wrapper.style.justifyContent = 'center';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.display = 'none';
-
-    return wrapper;
-  }
-
-  async function *lazyFetch(files) {
-    for (const { name, input } of files) yield { name, input: await fetch(input) }
-  }
-
-  function formatBytes(bytes, decimals = 1) {
-    if (!+bytes) return '0 Bytes'
-
-    const k = 1024
-    const dm = decimals < 0 ? 0 : decimals
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
-  }
-
-  init();
+  exportInit();
 })();
