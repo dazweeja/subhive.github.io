@@ -11,8 +11,6 @@
 (function () {
   'use strict';
 
-  const baseUrl = window.location.protocol + '//' + window.location.host;
-
   function quizNavInit() {
     if (window.location.pathname.match(/(courses)\/[0-9]{1,}\/(quizzes)\//gi)) {
       if (!window.location.pathname.match(/new/gi) && !window.location.pathname.match(/edit/gi)) {
@@ -20,11 +18,7 @@
         const config = {childList: true};
 
         if (footer) {
-          console.log('foot');
-          console.log(footer);
-          console.log(footer.style.display);
           const f1 = footer.querySelector('.module-sequence-footer');
-          console.log(f1);
           if (!footer.querySelector('.module-sequence-footer')) {
             addQuizNav();
           }
@@ -38,7 +32,6 @@
   }
 
   function footerCallback(mutations, observer) {
-    console.log('foot2');
     const footer = document.getElementById('module_sequence_footer');
     if (footer) {
       observer.disconnect();
