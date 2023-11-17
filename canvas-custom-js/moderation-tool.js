@@ -97,8 +97,10 @@
             if (user.name.match(/Test\s*Student/i)) return;
 
             if (user.enrollments && user.enrollments.length > 0) {
+              let hasActiveEnrollment = false;
+
               user.enrollments.forEach(function (enrollment) {
-                if (enrollment.enrollment_state !== 'active' || enrollment.type !== 'StudentEnrollment') return;
+                if (hasActiveEnrollment || enrollment.enrollment_state !== 'active' || enrollment.type !== 'StudentEnrollment') return;
 
                 total++;
 
@@ -111,6 +113,8 @@
                 else {
                   passes++;
                 }
+
+                hasActiveEnrollment = true;
               });
             }
           });
@@ -298,33 +302,24 @@
     return isTeacher;
   }
 
-  function getUsers(url) {
-    return getUsersPage(url)
-      .then(function (page) {
-        if (page.url) {
-          return getUsersPage(page.url)
-            .then(function (nextPage) {
-              return page.data.concat(nextPage);
-            });
-        }
-        else {
-          return page.data;
-        }
-      })
-      .catch(e => errorHandler(e));
-  }
-
-  function getUsersPage(url) {
+  function getUsers(url, users = []) {
     return new Promise(function (resolve, reject) {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.onload = function () {
         if (xhr.readyState === 4) {
           if (xhr.status === 200) {
-            resolve({
-              data: JSON.parse(xhr.responseText),
-              url: nextURL(xhr.getResponseHeader('Link'))
-            })
+            users = users.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              getUsers(url, users)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(users);
+            }
           }
         }
         else {
