@@ -68,6 +68,43 @@
 
     return isTeacher;
   }
+  function fetchItem(url) {
+    return fetchItems(url, [], true)
+  }
+
+  function fetchItems(url, items = [], singleItem = false) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          if (singleItem) {
+            resolve(JSON.parse(xhr.responseText));
+          }
+          else {
+            items = items.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              fetchItems(url, items)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(items);
+            }
+          }
+        }
+        else {
+          reject(xhr.statusText);
+        }
+      };
+      xhr.onerror = function () {
+        reject(xhr.statusText);
+      };
+      xhr.send();
+    });
+  }
 
   function nextURL(linkTxt) {
     let nextUrl = null;
@@ -102,7 +139,7 @@
 
     const users = {};
 
-    getSubmissions(subUrl)
+    fetchItems(subUrl)
       .then(submissions => {
         parseSubmissions(submissions, users);
 
@@ -218,44 +255,6 @@
       })
       .catch(e => errorHandler(e));
 
-  }
-
-  function getSubmissions(url) {
-    return getSubmissionsPage(url)
-      .then(page => {
-        if (page.url) {
-          return getSubmissions(page.url)
-            .then(nextPage => page.data.concat(nextPage));
-        }
-        else {
-          return page.data;
-        }
-      })
-      .catch(e => errorHandler(e));
-  }
-
-  function getSubmissionsPage(url) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = () => {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            resolve({
-              data: JSON.parse(xhr.responseText),
-              url: nextURL(xhr.getResponseHeader('Link'))
-            })
-          }
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = () => {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
   }
 
   function parseSubmissions(submissions, users) {

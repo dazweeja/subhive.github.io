@@ -10,7 +10,7 @@
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
 
-  function init() {
+  function userGradesInit() {
     const viewer = document.getElementById('view_grades');
     const menu = document.getElementsByClassName('ic-app-course-menu');
     const config = {childList: true};
@@ -88,7 +88,7 @@
     const courseId = getCourseId();
     const url = baseUrl + '/api/v1/courses/' + courseId + '/assignment_groups?per_page=999&include[]=assignments';
 
-    getAssignmentGroups(url)
+    fetchItems(url)
       .then(function (assignmentGroups) {
         const grades = {};
         const assignments = {};
@@ -97,7 +97,6 @@
         assignmentGroups.sort((a, b) => a.position - b.position);
 
         assignmentGroups.forEach(function (assignmentGroup) {
-          console.log(assignmentGroup);
           let group = null;
           if (assignmentGroup.assignments && assignmentGroup.assignments.length) {
             const groupAssignments = [];
@@ -136,10 +135,8 @@
         subUrl.searchParams.append('per_page', 999);
         Object.keys(grades).forEach(val => subUrl.searchParams.append('assignment_ids[]', val));
 
-        getStatuses(subUrl)
+        fetchItems(subUrl)
           .then(statuses => {
-            console.log(statuses);
-            console.log(grades);
             parseStatuses(statuses, grades, assignments);
 
             let content = '';
@@ -148,23 +145,16 @@
               content += createTable(group, grades);
             });
 
-            /*let isProgress = false;
-            let isIncompetent = false;
-            for (const assignmentId in grades) {
-              const grade = grades[assignmentId];
-              if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
-              else if (grade !== 'satisfactory' && grade !== 'excused') isIncompetent = true;
-            }
-
-            const result = isProgress ? 'In Progress' : (isIncompetent ? 'Not Yet Competent' : 'Competent');
-            content += createResultTable(result);*/
-
             viewer.innerHTML = content;
           })
           .catch(e => errorHandler(e));
       })
       .catch(e => errorHandler(e));
   }
+
+  /*
+   * Common functions start
+   */
 
   function getCourseId() {
     let courseId = null;
@@ -199,33 +189,31 @@
     return isTeacher;
   }
 
-  function getAssignmentGroups(url) {
-    return getAssignmentGroupsPage(url)
-      .then(function (page) {
-        if (page.url) {
-          return getAssignmentGroups(page.url)
-            .then(function (nextPage) {
-              return page.data.concat(nextPage);
-            });
-        }
-        else {
-          return page.data;
-        }
-      })
-      .catch(e => errorHandler(e));
+  function fetchItem(url) {
+    return fetchItems(url, [], true)
   }
 
-  function getAssignmentGroupsPage(url) {
+  function fetchItems(url, items = [], singleItem = false) {
     return new Promise(function (resolve, reject) {
       const xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.onload = function () {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            resolve({
-              data: JSON.parse(xhr.responseText),
-              url: nextURL(xhr.getResponseHeader('Link'))
-            })
+        if (xhr.status === 200) {
+          if (singleItem) {
+            resolve(JSON.parse(xhr.responseText));
+          }
+          else {
+            items = items.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              fetchItems(url, items)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(items);
+            }
           }
         }
         else {
@@ -239,43 +227,28 @@
     });
   }
 
-  function getStatuses(url) {
-    return getStatusPage(url)
-      .then(page => {
-        if (page.url) {
-          return getStatuses(page.url)
-            .then(nextPage => page.data.concat(nextPage));
+  function nextURL(linkTxt) {
+    let nextUrl = null;
+    if (linkTxt) {
+      const links = linkTxt.split(',');
+      const nextRegEx = /^<(.*)>; rel="next"$/;
+      for (let i = 0; i < links.length; i++) {
+        const matches = links[i].match(nextRegEx);
+        if (matches) {
+          nextUrl = matches[1];
         }
-        else {
-          return page.data;
-        }
-      })
-      .catch(e => errorHandler(e));
+      }
+    }
+    return nextUrl;
   }
 
-  function getStatusPage(url) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = () => {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            resolve({
-              data: JSON.parse(xhr.responseText),
-              url: nextURL(xhr.getResponseHeader('Link'))
-            })
-          }
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = () => {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
+  function errorHandler(e) {
+    console.log(e.name + ': ' + e.message);
   }
+
+  /*
+   * Common functions end
+   */
 
   function parseStatuses(statuses, grades, assignments) {
     statuses.forEach(status => {
@@ -310,7 +283,6 @@
     let isIncompetent = false;
 
     group.assignments.forEach((assignment) => {
-      console.log(assignment);
       const grade = assignment.id in grades ? grades[assignment.id] : 'NA';
       if (grade === 'submitted' || grade === 'not submitted' || grade === 'NA') isProgress = true;
       else if (grade !== 'satisfactory' && grade !== 'excused') isIncompetent = true;
@@ -344,35 +316,5 @@
     return table;
   }
 
-  function createResultTable(result) {
-    let table = '<table className="ic-Table" style="width: 100%; border-top-color: #c7cdd1; border-top-style: double; font-size: 1.5rem;">';
-    table += '<tbody><tr>';
-    table += '<td style="width: 60%;">&nbsp;</td>';
-    table += '<td style="width: 20%; text-align: right;"><p><strong>Course Result:&nbsp;</strong></p></td>';
-    table += `<td style="width: 20%;"><p>${result}</p></td>`;
-    table += '</tr></tbody></table>';
-
-    return table;
-  }
-
-  function nextURL(linkTxt) {
-    let nextUrl = null;
-    if (linkTxt) {
-      const links = linkTxt.split(',');
-      const nextRegEx = /^<(.*)>; rel="next"$/;
-      for (let i = 0; i < links.length; i++) {
-        const matches = links[i].match(nextRegEx);
-        if (matches) {
-          nextUrl = matches[1];
-        }
-      }
-    }
-    return nextUrl;
-  }
-
-  function errorHandler(e) {
-    console.log(e.name + ': ' + e.message);
-  }
-
-  init();
+  userGradesInit();
 })();

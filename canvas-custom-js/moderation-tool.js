@@ -14,7 +14,7 @@
   const baseUrl = window.location.protocol + '//' + window.location.host;
   const selector = '#gradebook_grid .slick-header-columns > .total_grade .Gradebook__ColumnHeaderDetail';
 
-  function init() {
+  function moderationToolInit() {
     if (!window.location.pathname.match(/\/courses\/\d+\/gradebook/)) return;
 
     const totalHeader = document.querySelector(selector);
@@ -87,7 +87,7 @@
 
       table.append(loadingBody);
 
-      getUsers(url)
+      fetchItems(url)
         .then(function (users) {
           let tableBody;
 
@@ -157,6 +157,104 @@
       header.appendChild(statsIcon);
     }, 1500);
   }
+
+  /*
+   * Common functions start
+   */
+
+  function getCourseId() {
+    let courseId = null;
+    try {
+      const courseRegex = new RegExp('/courses/([0-9]+)');
+      const matches = courseRegex.exec(window.location.href);
+      if (matches) {
+        courseId = matches[1];
+      }
+      else {
+        throw new Error('Unable to detect Course ID');
+      }
+    }
+    catch (e) {
+      errorHandler(e);
+    }
+    return courseId;
+  }
+
+  function getIsTeacher() {
+    let isTeacher = false;
+    const teacherExp = /"current_user_roles":\[(?:[^\]]*)"teacher"(?:[^\]]*)\]/;
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const teacherMatches = scripts[i].text.match(teacherExp);
+      if (teacherMatches != null) {
+        isTeacher = true;
+        break;
+      }
+    }
+
+    return isTeacher;
+  }
+
+  function fetchItem(url) {
+    return fetchItems(url, [], true)
+  }
+
+  function fetchItems(url, items = [], singleItem = false) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          if (singleItem) {
+            resolve(JSON.parse(xhr.responseText));
+          }
+          else {
+            items = items.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              fetchItems(url, items)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(items);
+            }
+          }
+        }
+        else {
+          reject(xhr.statusText);
+        }
+      };
+      xhr.onerror = function () {
+        reject(xhr.statusText);
+      };
+      xhr.send();
+    });
+  }
+
+  function nextURL(linkTxt) {
+    let nextUrl = null;
+    if (linkTxt) {
+      const links = linkTxt.split(',');
+      const nextRegEx = /^<(.*)>; rel="next"$/;
+      for (let i = 0; i < links.length; i++) {
+        const matches = links[i].match(nextRegEx);
+        if (matches) {
+          nextUrl = matches[1];
+        }
+      }
+    }
+    return nextUrl;
+  }
+
+  function errorHandler(e) {
+    console.log(e.name + ': ' + e.message);
+  }
+
+  /*
+   * Common functions end
+   */
 
   function iconFactory(className, handler, marginRight) {
     const icon = document.createElement('i');
@@ -269,88 +367,5 @@
     return tableBody;
   }
 
-  function getCourseId() {
-    let courseId = null;
-    try {
-      const courseRegex = new RegExp('/courses/([0-9]+)');
-      const matches = courseRegex.exec(window.location.href);
-      if (matches) {
-        courseId = matches[1];
-      }
-      else {
-        throw new Error('Unable to detect Course ID');
-      }
-    }
-    catch (e) {
-      errorHandler(e);
-    }
-    return courseId;
-  }
-
-  function getIsTeacher() {
-    let isTeacher = false;
-    const teacherExp = /"current_user_roles":\[(?:[^\]]*)"teacher"(?:[^\]]*)\]/;
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-      const teacherMatches = scripts[i].text.match(teacherExp);
-      if (teacherMatches != null) {
-        isTeacher = true;
-        break;
-      }
-    }
-
-    return isTeacher;
-  }
-
-  function getUsers(url, users = []) {
-    return new Promise(function (resolve, reject) {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = function () {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            users = users.concat(JSON.parse(xhr.responseText));
-            const url = nextURL(xhr.getResponseHeader('Link'));
-
-            if (url) {
-              getUsers(url, users)
-                .then(resolve)
-                .catch(reject);
-            }
-            else {
-              resolve(users);
-            }
-          }
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = function () {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
-  }
-
-  function nextURL(linkTxt) {
-    let nextUrl = null;
-    if (linkTxt) {
-      const links = linkTxt.split(',');
-      const nextRegEx = /^<(.*)>; rel="next"$/;
-      for (let i = 0; i < links.length; i++) {
-        const matches = links[i].match(nextRegEx);
-        if (matches) {
-          nextUrl = matches[1];
-        }
-      }
-    }
-    return nextUrl;
-  }
-
-  function errorHandler(e) {
-    console.log(e.name + ': ' + e.message);
-  }
-
-  init();
+  moderationToolInit();
 })();

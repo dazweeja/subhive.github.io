@@ -14,6 +14,8 @@
   function attendanceInit() {
     if (window.location.pathname.match(/(courses)\/[0-9]{1,}/gi)) {
       if (!window.location.pathname.match(/new/gi) && !window.location.pathname.match(/edit/gi)) {
+        
+        console.log('attendance init');
         const studentButton = document.getElementById('easy_student_view');
         const config = {childList: true};
 
@@ -72,6 +74,43 @@
 
     return isTeacher;
   }
+  function fetchItem(url) {
+    return fetchItems(url, [], true)
+  }
+
+  function fetchItems(url, items = [], singleItem = false) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          if (singleItem) {
+            resolve(JSON.parse(xhr.responseText));
+          }
+          else {
+            items = items.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              fetchItems(url, items)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(items);
+            }
+          }
+        }
+        else {
+          reject(xhr.statusText);
+        }
+      };
+      xhr.onerror = function () {
+        reject(xhr.statusText);
+      };
+      xhr.send();
+    });
+  }
 
   function nextURL(linkTxt) {
     let nextUrl = null;
@@ -101,7 +140,7 @@
 
     const courseId = getCourseId();
     const url = "/api/v1/courses/" + courseId;
-    getCourse(url)
+    fetchItem(url)
       .then(course => {
         // the current state of the course one of 'unpublished', 'available',
         // 'completed', or 'deleted'
@@ -123,25 +162,6 @@
     button.innerHTML = '<i class="icon-user"></i> ' + title;
 
     return button;
-  }
-
-  function getCourse(url) {
-    return new Promise(function (resolve, reject) {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          resolve(JSON.parse(xhr.responseText));
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = function () {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
   }
 
   attendanceInit();

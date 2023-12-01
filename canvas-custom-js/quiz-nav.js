@@ -86,6 +86,44 @@
     return isTeacher;
   }
 
+  function fetchItem(url) {
+    return fetchItems(url, [], true)
+  }
+
+  function fetchItems(url, items = [], singleItem = false) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          if (singleItem) {
+            resolve(JSON.parse(xhr.responseText));
+          }
+          else {
+            items = items.concat(JSON.parse(xhr.responseText));
+            const url = nextURL(xhr.getResponseHeader('Link'));
+
+            if (url) {
+              fetchItems(url, items)
+                .then(resolve)
+                .catch(reject);
+            }
+            else {
+              resolve(items);
+            }
+          }
+        }
+        else {
+          reject(xhr.statusText);
+        }
+      };
+      xhr.onerror = function () {
+        reject(xhr.statusText);
+      };
+      xhr.send();
+    });
+  }
+
   function nextURL(linkTxt) {
     let nextUrl = null;
     if (linkTxt) {
@@ -111,7 +149,7 @@
 
   function createNavItem(id, pageType, pageID) {
     let url = "/api/v1/courses/" + id + "/module_item_sequence?asset_type=" + pageType + "&asset_id=" + pageID + "&frame_external_urls=true";
-    getNavItems(url)
+    fetchItems(url)
       .then(navItem => {
         if (navItem.items.length > 0 && navItem.items[0].prev) {
           const prev = navItem.items[0].prev.module_id;
@@ -187,44 +225,6 @@
         e += 1;
       }
     }, 100)
-  }
-
-  function getNavItems(url) {
-    return NavItemPage(url)
-      .then(page => {
-        if (page.url) {
-          return getNavItems(page.url)
-            .then(nextPage => page.data.concat(nextPage));
-        }
-        else {
-          return page.data;
-        }
-      })
-      .catch(e => errorHandler(e));
-  }
-
-  function NavItemPage(url) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.onload = () => {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            resolve({
-              data: JSON.parse(xhr.responseText),
-              url: nextURL(xhr.getResponseHeader('Link'))
-            })
-          }
-        }
-        else {
-          reject(xhr.statusText);
-        }
-      };
-      xhr.onerror = () => {
-        reject(xhr.statusText);
-      };
-      xhr.send();
-    });
   }
 
   quizNavInit();
