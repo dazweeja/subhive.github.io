@@ -14,8 +14,6 @@
   function attendanceInit() {
     if (window.location.pathname.match(/(courses)\/[0-9]{1,}/gi)) {
       if (!window.location.pathname.match(/new/gi) && !window.location.pathname.match(/edit/gi)) {
-        
-        console.log('attendance init');
         const studentButton = document.getElementById('easy_student_view');
         const config = {childList: true};
 
