@@ -11,29 +11,14 @@
 (function () {
   'use strict';
 
-  function attendanceInit() {
-    if (window.location.pathname.match(/(courses)\/[0-9]{1,}/gi)) {
-      if (!window.location.pathname.match(/new/gi) && !window.location.pathname.match(/edit/gi)) {
-        const studentButton = document.getElementById('easy_student_view');
-        const config = {childList: true};
+  /*
+   * We try to keep all code relating to each feature in a separate section and then add a single function call
+   * for each feature to this init function
+   */
+  function init() {
 
-        if (studentButton) {
-          addAttendanceButton(studentButton);
-        }
-        else {
-          const buttonObserver = new MutationObserver(buttonCallback);
-          buttonObserver.observe(document.body, config);
-        }
-      }
-    }
-  }
-
-  function buttonCallback(mutations, observer) {
-    const studentButton = document.getElementById('easy_student_view');
-    if (studentButton) {
-      observer.disconnect();
-      addAttendanceButton(studentButton);
-    }
+    // Begin moderation tool feature
+    attendanceInit();
   }
 
   /*
@@ -72,6 +57,7 @@
 
     return isTeacher;
   }
+
   function fetchItem(url) {
     return fetchItems(url, [], true)
   }
@@ -133,6 +119,35 @@
    * Common functions end
    */
 
+  /*
+   * Attendance Button start
+   */
+
+  function attendanceInit() {
+    if (window.location.pathname.match(/(courses)\/[0-9]{1,}/gi)) {
+      if (!window.location.pathname.match(/new/gi) && !window.location.pathname.match(/edit/gi)) {
+        const studentButton = document.getElementById('easy_student_view');
+        const config = {childList: true};
+
+        if (studentButton) {
+          addAttendanceButton(studentButton);
+        }
+        else {
+          const buttonObserver = new MutationObserver(buttonCallback);
+          buttonObserver.observe(document.body, config);
+        }
+      }
+    }
+  }
+
+  function buttonCallback(mutations, observer) {
+    const studentButton = document.getElementById('easy_student_view');
+    if (studentButton) {
+      observer.disconnect();
+      addAttendanceButton(studentButton);
+    }
+  }
+
   function addAttendanceButton(button) {
     if (!getIsTeacher()) return;
 
@@ -140,6 +155,7 @@
     const url = "/api/v1/courses/" + courseId;
     fetchItem(url)
       .then(course => {
+        console.log(course);
         // the current state of the course one of 'unpublished', 'available',
         // 'completed', or 'deleted'
         if (course && course.hasOwnProperty('workflow_state') && course.workflow_state === 'available'
@@ -162,5 +178,5 @@
     return button;
   }
 
-  attendanceInit();
+  init();
 })();

@@ -12,150 +12,15 @@
   'use strict';
 
   const baseUrl = window.location.protocol + '//' + window.location.host;
-  const selector = '#gradebook_grid .slick-header-columns > .total_grade .Gradebook__ColumnHeaderDetail';
 
-  function moderationToolInit() {
-    if (!window.location.pathname.match(/\/courses\/\d+\/gradebook/)) return;
+  /*
+   * We try to keep all code relating to each feature in a separate section and then add a single function call
+   * for each feature to this init function
+   */
+  function init() {
 
-    const totalHeader = document.querySelector(selector);
-    const config = {childList: true};
-
-    if (totalHeader) {
-      addModerationTotals(totalHeader);
-    }
-    else {
-      const headerObserver = new MutationObserver(headerCallback);
-      headerObserver.observe(document.body, config);
-    }
-  }
-
-  function headerCallback(mutations, observer) {
-    const totalHeader = document.querySelector(selector);
-    if (totalHeader) {
-      observer.disconnect();
-      addModerationTotals(totalHeader);
-    }
-  }
-
-  function addModerationTotals(totalHeader) {
-    if (!getIsTeacher()) return;
-
-    const courseId = getCourseId();
-    const url = baseUrl + '/api/v1/courses/' + courseId + '/users?per_page=999&&enrollment_type[]=student&include[]=enrollments';
-
-    const element = document.createElement('style');
-    document.head.appendChild(element);
-    let sheet = element.sheet;
-    const styles = '.Gradebook__ColumnHeaderDetail i::before { font-size: 0.75rem; }';
-    sheet.insertRule(styles, 0);
-
-    const wrapper = document.createElement('div');
-    wrapper.style.border = '1px solid #bbb';
-    wrapper.style.zIndex = '999';
-    wrapper.style.padding = '0 0 8px';
-    wrapper.style.backgroundColor = '#fff';
-    wrapper.style.position = 'absolute';
-    wrapper.fontSize = '1rem';
-    wrapper.style.top = '-169px';
-
-    const table = document.createElement('table');
-    table.style.width = '256px';
-    table.style.border = '0';
-    table.style.fontSize = '0.875rem';
-
-    wrapper.append(table);
-
-    let isConnected = false;
-    let noEnrollmentsBody;
-
-    const statsHandler = function(event) {
-      if (!isConnected) {
-        const header = document.querySelector(selector);
-        const headerColumn = header.closest('div.slick-header-column')
-        const headerRect = headerColumn.getBoundingClientRect();
-        const gridWrapper = header.closest('#gradebook-grid-wrapper');
-        const gridWrapperRect = gridWrapper.getBoundingClientRect();
-        gridWrapper.style.position = 'relative';
-        wrapper.style.left = headerRect.right - gridWrapperRect.left - 258 + 'px';
-        gridWrapper.append(wrapper);
-        isConnected = true;
-      }
-
-      if (table.firstChild) {
-        table.removeChild(table.firstChild);
-      }
-
-      table.append(loadingBody);
-
-      fetchItems(url)
-        .then(function (users) {
-          let tableBody;
-
-          let total = 0, fails = 0, passes = 0, noScores = 0;
-
-          users.forEach(function (user) {
-            if (user.name.match(/Test\s*Student/i)) return;
-
-            if (user.enrollments && user.enrollments.length > 0) {
-              let hasActiveEnrollment = false;
-
-              user.enrollments.forEach(function (enrollment) {
-                if (hasActiveEnrollment || enrollment.enrollment_state !== 'active' || enrollment.type !== 'StudentEnrollment') return;
-
-                total++;
-
-                if (!enrollment.hasOwnProperty('grades') || !enrollment.grades.hasOwnProperty('current_score') || typeof enrollment.grades.current_score !== 'number') {
-                  noScores++
-                }
-                else if (enrollment.grades.current_score < 49.5) {
-                  fails++;
-                }
-                else {
-                  passes++;
-                }
-
-                hasActiveEnrollment = true;
-              });
-            }
-          });
-
-          if (total > 0) {
-            tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes, noScores);
-          }
-          else {
-            if (!noEnrollmentsBody) noEnrollmentsBody = tableBodyFactory(noEnrollmentsCloseIcon, noEnrollmentsRefreshIcon, 'No active enrollments');
-            tableBody = noEnrollmentsBody;
-          }
-
-          table.removeChild(loadingBody);
-          table.append(tableBody);
-        })
-        .catch(e => errorHandler(e))
-    }
-
-    const closeHandler = function(event) {
-      wrapper.remove();
-      isConnected = false;
-    };
-
-    const statsIcon = iconFactory('icon-stats');
-    statsIcon.style.marginLeft = '0.25rem';
-    statsIcon.addEventListener('click', statsHandler);
-
-    const closeIcon = iconFactory('icon-end', closeHandler);
-
-    const totalsCloseIcon = iconFactory('icon-end', closeHandler);
-    const totalsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
-
-    const noEnrollmentsCloseIcon = iconFactory('icon-end', closeHandler);
-    const noEnrollmentsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
-
-    const loadingBody = tableBodyFactory(closeIcon, null, 'Loading...');
-
-    setTimeout(function() {
-      const header = document.querySelector(selector);
-      header.appendChild(statsIcon);
-    }, 1500);
+    // Begin moderation tool feature
+    moderationToolInit();
   }
 
   /*
@@ -255,6 +120,171 @@
   /*
    * Common functions end
    */
+
+  /*
+   * Moderation Tool start
+   */
+
+  const moderationToolSelector = '#gradebook_grid .slick-header-columns > .total_grade .Gradebook__ColumnHeaderDetail';
+
+  function moderationToolInit() {
+    if (!window.location.pathname.match(/\/courses\/\d+\/gradebook/)) return;
+
+    const totalHeader = document.querySelector(moderationToolSelector);
+    const config = {childList: true};
+
+    if (totalHeader) {
+      addModerationTotals(totalHeader);
+    }
+    else {
+      const headerObserver = new MutationObserver(headerCallback);
+      headerObserver.observe(document.body, config);
+    }
+  }
+
+  function headerCallback(mutations, observer) {
+    const totalHeader = document.querySelector(moderationToolSelector);
+    if (totalHeader) {
+      observer.disconnect();
+      addModerationTotals(totalHeader);
+    }
+  }
+
+  function getIsGradeModerator() {
+    let isGradeModerator = false;
+    const gradeModeratorExp = /"current_user_roles":\[(?:[^\]]*)("teacher"|"root_admin")(?:[^\]]*)\]/;
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const gradeModeratorMatches = scripts[i].text.match(gradeModeratorExp);
+      if (gradeModeratorMatches != null) {
+        isGradeModerator = true;
+        break;
+      }
+    }
+
+    return isGradeModerator;
+  }
+
+  function addModerationTotals(totalHeader) {
+    if (!getIsGradeModerator()) return;
+
+    const courseId = getCourseId();
+    const url = baseUrl + '/api/v1/courses/' + courseId + '/users?per_page=999&&enrollment_type[]=student&include[]=enrollments';
+
+    const element = document.createElement('style');
+    document.head.appendChild(element);
+    let sheet = element.sheet;
+    const styles = '.Gradebook__ColumnHeaderDetail i::before { font-size: 0.75rem; }';
+    sheet.insertRule(styles, 0);
+
+    const wrapper = document.createElement('div');
+    wrapper.style.border = '1px solid #bbb';
+    wrapper.style.zIndex = '999';
+    wrapper.style.padding = '0 0 8px';
+    wrapper.style.backgroundColor = '#fff';
+    wrapper.style.position = 'absolute';
+    wrapper.fontSize = '1rem';
+    wrapper.style.top = '-169px';
+
+    const table = document.createElement('table');
+    table.style.width = '256px';
+    table.style.border = '0';
+    table.style.fontSize = '0.875rem';
+
+    wrapper.append(table);
+
+    let isConnected = false;
+    let noEnrollmentsBody;
+
+    const statsHandler = function(event) {
+      if (!isConnected) {
+        const header = document.querySelector(moderationToolSelector);
+        const headerColumn = header.closest('div.slick-header-column')
+        const headerRect = headerColumn.getBoundingClientRect();
+        const gridWrapper = header.closest('#gradebook-grid-wrapper');
+        const gridWrapperRect = gridWrapper.getBoundingClientRect();
+        gridWrapper.style.position = 'relative';
+        wrapper.style.left = headerRect.right - gridWrapperRect.left - 258 + 'px';
+        gridWrapper.append(wrapper);
+        isConnected = true;
+      }
+
+      if (table.firstChild) {
+        table.removeChild(table.firstChild);
+      }
+
+      table.append(loadingBody);
+
+      fetchItems(url)
+        .then(function (users) {
+          let tableBody;
+
+          let total = 0, fails = 0, passes = 0, noScores = 0;
+
+          users.forEach(function (user) {
+            if (user.name.match(/Test\s*Student/i)) return;
+
+            if (user.enrollments && user.enrollments.length > 0) {
+              let hasActiveEnrollment = false;
+
+              user.enrollments.forEach(function (enrollment) {
+                if (hasActiveEnrollment || enrollment.enrollment_state !== 'active' || enrollment.type !== 'StudentEnrollment') return;
+
+                total++;
+
+                if (!enrollment.hasOwnProperty('grades') || !enrollment.grades.hasOwnProperty('current_score') || typeof enrollment.grades.current_score !== 'number') {
+                  noScores++
+                }
+                else if (enrollment.grades.current_score < 49.5) {
+                  fails++;
+                }
+                else {
+                  passes++;
+                }
+
+                hasActiveEnrollment = true;
+              });
+            }
+          });
+
+          if (total > 0) {
+            tableBody = tableBodyFactory(totalsCloseIcon, totalsRefreshIcon, total, fails, passes, noScores);
+          }
+          else {
+            if (!noEnrollmentsBody) noEnrollmentsBody = tableBodyFactory(noEnrollmentsCloseIcon, noEnrollmentsRefreshIcon, 'No active enrollments');
+            tableBody = noEnrollmentsBody;
+          }
+
+          table.removeChild(loadingBody);
+          table.append(tableBody);
+        })
+        .catch(e => errorHandler(e))
+    }
+
+    const closeHandler = function(event) {
+      wrapper.remove();
+      isConnected = false;
+    };
+
+    const statsIcon = iconFactory('icon-stats');
+    statsIcon.style.marginLeft = '0.25rem';
+    statsIcon.addEventListener('click', statsHandler);
+
+    const closeIcon = iconFactory('icon-end', closeHandler);
+
+    const totalsCloseIcon = iconFactory('icon-end', closeHandler);
+    const totalsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+
+    const noEnrollmentsCloseIcon = iconFactory('icon-end', closeHandler);
+    const noEnrollmentsRefreshIcon = iconFactory('icon-refresh', statsHandler, '0.25rem');
+
+    const loadingBody = tableBodyFactory(closeIcon, null, 'Loading...');
+
+    setTimeout(function() {
+      const header = document.querySelector(moderationToolSelector);
+      header.appendChild(statsIcon);
+    }, 1500);
+  }
 
   function iconFactory(className, handler, marginRight) {
     const icon = document.createElement('i');
@@ -367,5 +397,9 @@
     return tableBody;
   }
 
-  moderationToolInit();
+  /*
+   * Moderation Tool end
+   */
+
+  init();
 })();
