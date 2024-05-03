@@ -131,33 +131,33 @@
   const regexes = {
     atomic_journal: {
       name: "Atomic Journal",
-      regex: /<iframe [^>]*src=["|'][^"|']+resource_link_lookup_uuid=[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|'][^"|']+resource_link_lookup_uuid=[^"|']+["|'][^>]*>/g
     },
     echo_public_embed: {
       name: "EchoVideo (Public Embed)",
-      regex: /<iframe [^>]*src=["|']https:\/\/echo360\.net\.au\/[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|']https:\/\/echo360\.net\.au\/[^"|']+["|'][^>]*>/g
     },
     echo_Lti_embed: {
       name: "EchoVideo (LTI Embed)",
-      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fecho360\.net\.au%2F[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fecho360\.net\.au%2F[^"|']+["|'][^>]*>/g
     },
-    flip: {name: "Flip", regex: /<iframe [^>]*src=["|']https:\/\/flipgrid\.com\/[^"|']+["|'][^>]*>/},
+    flip: {name: "Flip", regex: /<iframe [^>]*src=["|']https:\/\/flipgrid\.com\/[^"|']+["|'][^>]*>/g},
     h5p_public_embed: {
       name: "H5P (Public Embed)",
-      regex: /<iframe [^>]*src=["|']https:\/\/collarts\.h5p\.com\/[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|']https:\/\/collarts\.h5p\.com\/[^"|']+["|'][^>]*>/g
     },
     h5p_lti_embed: {
       name: "H5P (LTI Embed)",
-      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fcollarts\.h5p\.com%2F[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fcollarts\.h5p\.com%2F[^"|']+["|'][^>]*>/g
     },
     learning_journal: {
       name: "Learning Journal",
-      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fthelearningjournal\.co%2F[^"|']+["|'][^>]*>/
+      regex: /<iframe [^>]*src=["|'][^"|']+https%3A%2F%2Fthelearningjournal\.co%2F[^"|']+["|'][^>]*>/g
     },
-    miro: {name: "Miro", regex: /<iframe [^>]*src=["|']https:\/\/miro\.com\/[^"|']+["|'][^>]*>/},
-    padlet: {name: "Padlet", regex: /<iframe [^>]*src=["|']https:\/\/collarts\.padlet\.org\/[^"|']+["|'][^>]*>/},
-    wakelet: {name: "Wakelet", regex: /<iframe [^>]*src=["|']https:\/\/embed\.wakelet\.com\/[^"|']+["|'][^>]*>/},
-    zoom: {name: "Zoom", regex: /https:\/\/collarts\.zoom\.us\/rec\/share\//}
+    miro: {name: "Miro", regex: /<iframe [^>]*src=["|']https:\/\/miro\.com\/[^"|']+["|'][^>]*>/g},
+    padlet: {name: "Padlet", regex: /<iframe [^>]*src=["|']https:\/\/collarts\.padlet\.org\/[^"|']+["|'][^>]*>/g},
+    wakelet: {name: "Wakelet", regex: /<iframe [^>]*src=["|']https:\/\/embed\.wakelet\.com\/[^"|']+["|'][^>]*>/g},
+    zoom: {name: "Zoom", regex: /https:\/\/collarts\.zoom\.us\/rec\/share\//g}
   };
 
   function embedFinderInit() {
@@ -315,19 +315,19 @@
           }
 
           Promise.all(pagePromises).then((values) => {
-            rows.push("course id, course name, page id, page URL");
+            rows.push("course id, course name, page id, page URL, num matches");
             values.forEach(matches => {
               if (!Array.isArray(matches)) {
                 const courseId = parseInt(matches);
-                rows.push(`${courseId}, ${courseNames[courseId]}, Invalid course`);
+                rows.push(`${courseId}, ${courseNames[courseId]}, Invalid course,`);
               }
               else {
-                matches.forEach(match => rows.push(`${match.courseId}, ${courseNames[match.courseId]}, ${match.pageId}, ${match.url}`));
+                matches.forEach(match => rows.push(`${match.courseId},${courseNames[match.courseId]},${match.pageId},${match.url},${match.total}`));
               }
             });
 
             failedCourseNames.forEach(failedCourseId => {
-              rows.push(`${failedCourseId},, Invalid course`);
+              rows.push(`${failedCourseId},, Invalid course,`);
             });
 
             const csvContent = "data:text/csv;charset=utf-8," + rows.join("\r\n");
@@ -380,13 +380,16 @@
           .then(pages => {
             const matches = [];
             for (const page of pages) {
-              if (page.body && regex.test(page.body)) {
-                matches.push({courseId, pageId: page.page_id, url: page.html_url});
+              if (page.body) {
+                const bodyMatches = page.body.match(regex);
+                if (bodyMatches) {
+                  matches.push({courseId, pageId: page.page_id, url: page.html_url, total: bodyMatches.length});
+                }
               }
             }
 
             if (matches.length === 0) {
-              matches.push({courseId, pageId: 'No matches', url: ''});
+              matches.push({courseId, pageId: 'No matches', url: '', total: ''});
             }
 
             resolve(matches);
