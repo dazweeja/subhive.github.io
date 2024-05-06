@@ -1,10 +1,11 @@
 // ==UserScript==
-// @name        Embed finder
+// @name        Embedded Tool Finder for Canvas
 // @namespace   https://github.com/dazweeja/subhive.github.io
 // @author      Darren Smith <darren@spacedog.com.au>
-// @description Script for adding an embedFinder button to Canvas
+// @icon        https://spacedog.com.au/apple-icon.png
+// @description Script for adding an Embed Finder button to Canvas
 // @version     0.1
-// @match       https://collarts.instructure.com/accounts/*
+// @match       https://collarts.instacructure.com/accounts/*
 // @match       https://collarts.test.instructure.com/accounts/*
 // @run-at      document-body
 // ==/UserScript==
@@ -315,7 +316,7 @@
           }
 
           Promise.all(pagePromises).then((values) => {
-            rows.push("course id, course name, page id, page URL, num matches");
+            rows.push("course id, course name, page id, page URL, matches");
             values.forEach(matches => {
               if (!Array.isArray(matches)) {
                 const courseId = parseInt(matches);
