@@ -5,7 +5,7 @@
 // @icon        https://spacedog.com.au/apple-icon.png
 // @description Script for adding an Embed Finder button to Canvas
 // @version     0.1
-// @match       https://collarts.instacructure.com/accounts/*
+// @match       https://collarts.instructure.com/accounts/*
 // @match       https://collarts.test.instructure.com/accounts/*
 // @run-at      document-body
 // ==/UserScript==
